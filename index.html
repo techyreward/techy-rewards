@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Techy Rewards - Telegram Mini App</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f8fafc; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border: 1px solid #e2e8f0; }
+        .glass-nav { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(16px); border-top: 1px solid #e2e8f0; }
+        @keyframes alertShakeBlur {
+            0%, 100% { transform: translateX(0); filter: blur(0px); }
+            20% { transform: translateX(6px); filter: blur(1px); }
+            40% { transform: translateX(-6px); filter: blur(0.8px); }
+            60% { transform: translateX(5px); filter: blur(1px); }
+            80% { transform: translateX(-5px); filter: blur(0.5px); }
+        }
+        .input-alert-shake {
+            animation: alertShakeBlur 0.42s ease-in-out;
+            border-color: #ef4444 !important;
+            background-color: #fef2f2 !important;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 pb-24 select-none">
+
+    <!-- FULL PAGE TASK DETAIL VIEW -->
+    <div id="taskDetailScreen" class="fixed inset-0 bg-[#f8fafc] z-50 hidden overflow-y-auto flex flex-col justify-between p-5">
+        <div class="max-w-md mx-auto w-full flex-1 flex flex-col justify-between space-y-4 pb-6">
+            <!-- Top Back Bar -->
+            <div class="flex items-center justify-between pt-1">
+                <button onclick="closeTaskDetail()" class="w-10 h-10 rounded-xl bg-white hover:bg-slate-100 text-slate-800 flex items-center justify-center transition border border-slate-200 shadow-sm">
+                    <i class="fa-solid fa-arrow-left text-sm"></i>
+                </button>
+                <span class="text-xs font-black tracking-widest text-emerald-700 uppercase">Task Overview</span>
+                <div class="w-10"></div>
+            </div>
+
+            <!-- Hero Offer Banner Card (Square Style Box) -->
+            <div class="bg-gradient-to-br from-emerald-500/15 via-teal-500/5 to-emerald-600/20 border-2 border-emerald-500/40 rounded-3xl p-5 flex items-center justify-between gap-4 shadow-lg w-full shrink-0">
+                <div class="space-y-2.5 flex-1 min-w-0">
+                    <div>
+                        <h2 id="detailTaskTitle" class="text-2xl font-black text-emerald-950 tracking-tight truncate">Task Title</h2>
+                        <p id="detailTaskDesc" class="text-xs font-bold text-emerald-900/80 truncate mt-0.5">Complete task to earn</p>
+                    </div>
+                    <div class="inline-flex items-center bg-emerald-600 text-white rounded-xl p-1.5 pr-4 shadow-md">
+                        <span class="w-6 h-6 rounded-lg bg-amber-400 text-amber-950 font-black text-xs flex items-center justify-center mr-2 shadow-inner">
+                            <i class="fa-solid fa-bolt text-[10px]"></i>
+                        </span>
+                        <span id="detailTaskReward" class="font-black text-sm tracking-tight">0.00</span>
+                    </div>
+                </div>
+                <div id="detailTaskIcon" class="w-20 h-20 rounded-2xl bg-white text-emerald-600 flex items-center justify-center text-3xl shadow-md border border-emerald-100 shrink-0">
+                    <i class="fa-solid fa-gift"></i>
+                </div>
+            </div>
+
+            <!-- Task Rules & Requirements Card -->
+            <div class="bg-white border-2 border-slate-200/90 rounded-3xl p-5 space-y-3 shadow-md flex-1">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center">
+                        <i class="fa-solid fa-clipboard-list mr-2 text-emerald-600 text-sm"></i> Instructions & Steps
+                    </h4>
+                    <span class="text-[10px] font-black bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">Pending</span>
+                </div>
+                <div id="detailTaskConditions" class="space-y-2.5 text-xs text-slate-700">
+                    <!-- Injected dynamically -->
+                </div>
+
+                <!-- Pro Tips Section to Fill Space -->
+                <div class="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3.5 space-y-1.5 mt-3">
+                    <div class="flex items-center space-x-2 text-emerald-900 font-black text-xs">
+                        <i class="fa-solid fa-lightbulb text-amber-500"></i>
+                        <span>Pro Tip for Fast Approval</span>
+                    </div>
+                    <p class="text-[11px] text-slate-600 font-medium leading-relaxed">Make sure you use a unique device and complete all steps in a single browser session without using VPN or ad blockers.</p>
+                </div>
+            </div>
+
+            <!-- Bottom Start Now CTA Button -->
+            <div class="pt-2 shrink-0">
+                <button id="detailStartBtn" onclick="executeStartTask()" class="w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-600 hover:opacity-95 text-white font-black py-4 rounded-2xl text-xs transition shadow-xl shadow-emerald-500/30 flex items-center justify-center space-x-2">
+                    <span>START NOW</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FULL PAGE MY OFFERS SCREEN (ONGOING, COMPLETED, EXPIRED) -->
+    <div id="myOffersScreen" class="fixed inset-0 bg-[#f8fafc] z-50 hidden overflow-y-auto p-4 pb-10">
+        <div class="max-w-md mx-auto w-full space-y-5">
+            <!-- Top Back Bar -->
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                <button onclick="closeMyOffersScreen()" class="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center hover:bg-slate-100 transition shadow-sm">
+                    <i class="fa-solid fa-chevron-left text-sm"></i>
+                </button>
+                <span class="text-xs font-black tracking-widest text-emerald-600 uppercase">My Offers</span>
+                <div class="w-9"></div>
+            </div>
+
+            <!-- 3 Sections Toggle: Ongoing, Completed, Expired -->
+            <div class="grid grid-cols-3 gap-1.5 bg-slate-200/80 p-1.5 rounded-2xl border border-slate-300/60">
+                <button onclick="switchMyOffersTab('ongoing')" id="myOfferTab-ongoing" class="py-2 text-xs font-black rounded-xl bg-white text-slate-900 shadow-sm transition">
+                    Ongoing
+                </button>
+                <button onclick="switchMyOffersTab('completed')" id="myOfferTab-completed" class="py-2 text-xs font-black rounded-xl text-slate-600 hover:text-slate-900 transition">
+                    Completed
+                </button>
+                <button onclick="switchMyOffersTab('expired')" id="myOfferTab-expired" class="py-2 text-xs font-black rounded-xl text-slate-600 hover:text-slate-900 transition">
+                    Expired
+                </button>
+            </div>
+
+            <!-- My Offers Dynamic Feed -->
+            <div id="myOffersContainer" class="space-y-3">
+                <!-- Dynamic cards injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- FULL PAGE MY REFERRALS SCREEN -->
+    <div id="myReferralsScreen" class="fixed inset-0 bg-[#f8fafc] z-50 hidden overflow-y-auto p-4 pb-10">
+        <div class="max-w-md mx-auto w-full space-y-5">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                <button onclick="closeMyReferrals()" class="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center hover:bg-slate-100 transition shadow-sm">
+                    <i class="fa-solid fa-chevron-left text-sm"></i>
+                </button>
+                <span class="text-xs font-black tracking-widest text-emerald-600 uppercase">My Referrals</span>
+                <div class="w-9"></div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white border border-slate-200/80 rounded-2xl p-4 text-center shadow-sm">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Total Invited</span>
+                    <span id="statTotalInvited" class="text-xl font-black text-slate-900 mt-0.5 block">3</span>
+                </div>
+                <div class="bg-emerald-50/90 border border-emerald-200/80 rounded-2xl p-4 text-center shadow-sm">
+                    <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">50% Commission</span>
+                    <span id="statTotalCommission" class="text-xl font-black text-emerald-700 mt-0.5 block">₹215.00</span>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <h3 class="font-black text-slate-900 text-sm tracking-tight px-1">Invited Friends & Earnings</h3>
+                <div id="referralsListContainer" class="space-y-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FULL PAGE EARNING HISTORY SCREEN -->
+    <div id="earningHistoryScreen" class="fixed inset-0 bg-[#f8fafc] z-50 hidden overflow-y-auto p-4 pb-10">
+        <div class="max-w-md mx-auto w-full space-y-4">
+            <div class="flex items-center space-x-3 pt-1">
+                <button onclick="closeEarningHistory()" class="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center hover:bg-slate-100 transition shadow-sm shrink-0">
+                    <i class="fa-solid fa-chevron-left text-sm"></i>
+                </button>
+                <div class="flex-1 bg-white border border-slate-200/90 rounded-full py-2.5 px-5 text-center shadow-sm">
+                    <h2 class="font-black text-slate-900 text-sm tracking-tight uppercase">Earnings History</h2>
+                </div>
+            </div>
+
+            <!-- Filter Pills in Exact Required Order: All, Completed, Failed, Referral -->
+            <div class="flex items-center space-x-2 overflow-x-auto hide-scrollbar pb-1 pt-1">
+                <button onclick="filterEarningHistory('all')" id="histFilter-all" class="px-4 py-2 rounded-full text-xs font-black bg-emerald-600 text-white shadow-sm shrink-0 transition">
+                    All
+                </button>
+                <button onclick="filterEarningHistory('completed')" id="histFilter-completed" class="px-4 py-2 rounded-full text-xs font-black bg-white text-slate-600 border border-slate-200 hover:text-slate-900 shrink-0 transition">
+                    Completed
+                </button>
+                <button onclick="filterEarningHistory('failed')" id="histFilter-failed" class="px-4 py-2 rounded-full text-xs font-black bg-white text-slate-600 border border-slate-200 hover:text-slate-900 shrink-0 transition">
+                    Failed
+                </button>
+                <button onclick="filterEarningHistory('referral')" id="histFilter-referral" class="px-4 py-2 rounded-full text-xs font-black bg-white text-slate-600 border border-slate-200 hover:text-slate-900 shrink-0 transition">
+                    Referral
+                </button>
+            </div>
+
+            <div id="earningHistoryContainer" class="space-y-3 pt-1"></div>
+        </div>
+    </div>
+
+    <!-- WITHDRAW BOTTOM-SHEET DRAWER -->
+    <div id="withdrawModal" class="fixed inset-0 bg-slate-900/60 z-50 hidden flex flex-col justify-end backdrop-blur-sm transition-opacity">
+        <div class="bg-white w-full max-w-md mx-auto rounded-t-[2rem] p-6 shadow-2xl space-y-5">
+            <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto -mt-1"></div>
+            <div class="flex items-center justify-between">
+                <h2 class="font-black text-slate-900 text-2xl tracking-tight">Withdraw</h2>
+                <button onclick="closeWithdrawModal()" class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center hover:bg-emerald-100 transition">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/80">
+                <button id="methodTab-upi" onclick="selectPayoutCategory('upi')" class="py-3 rounded-xl font-black text-xs bg-white text-slate-900 shadow-sm border-2 border-emerald-500/40 transition">
+                    UPI
+                </button>
+                <button id="methodTab-giftcard" onclick="selectPayoutCategory('giftcard')" class="py-3 rounded-xl font-black text-xs text-slate-500 hover:text-slate-900 transition">
+                    Gift Cards
+                </button>
+            </div>
+
+            <div id="payoutForm-upi" class="space-y-4">
+                <div class="space-y-1.5">
+                    <label class="text-[11px] font-black text-slate-600 uppercase tracking-wider block">UPI ID <span class="text-rose-500">*</span></label>
+                    <input id="upiIdInput" type="text" placeholder="Enter your UPI ID (e.g. name@upi)" class="w-full bg-white border border-slate-300 rounded-2xl px-4 py-3.5 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 transition">
+                    <p id="upiErrorMsg" class="text-[11px] text-rose-500 font-bold hidden pt-0.5"></p>
+                </div>
+            </div>
+
+            <div id="payoutForm-giftcard" class="hidden space-y-4">
+                <div class="space-y-1.5">
+                    <label class="text-[11px] font-black text-slate-600 uppercase tracking-wider block">Select Gift Card <span class="text-rose-500">*</span></label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" id="gc-PhonePe" onclick="selectGiftCardBrand('PhonePe')" class="gc-brand-btn p-3 rounded-2xl border-2 border-emerald-500 bg-emerald-50/60 text-center space-y-1.5 transition">
+                            <div class="w-8 h-8 mx-auto rounded-xl bg-purple-600 text-white flex items-center justify-center font-black text-xs shadow-sm">Pe</div>
+                            <span class="text-[11px] font-black text-slate-900 block">PhonePe</span>
+                        </button>
+                        <button type="button" id="gc-Amazon Pay" onclick="selectGiftCardBrand('Amazon Pay')" class="gc-brand-btn p-3 rounded-2xl border border-slate-200 bg-white text-center space-y-1.5 transition">
+                            <div class="w-8 h-8 mx-auto rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-xs shadow-sm">
+                                <i class="fa-brands fa-amazon"></i>
+                            </div>
+                            <span class="text-[11px] font-black text-slate-700 block">Amazon Pay</span>
+                        </button>
+                        <button type="button" id="gc-Google Play" onclick="selectGiftCardBrand('Google Play')" class="gc-brand-btn p-3 rounded-2xl border border-slate-200 bg-white text-center space-y-1.5 transition">
+                            <div class="w-8 h-8 mx-auto rounded-xl bg-teal-500 text-white flex items-center justify-center font-black text-xs shadow-sm">
+                                <i class="fa-brands fa-google-play"></i>
+                            </div>
+                            <span class="text-[11px] font-black text-slate-700 block">Google Play</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="text-[11px] font-black text-slate-600 uppercase tracking-wider block">Email Address for Voucher <span class="text-rose-500">*</span></label>
+                    <input id="giftCardContactInput" type="email" placeholder="Enter your email address (e.g. name@gmail.com)" class="w-full bg-white border border-slate-300 rounded-2xl px-4 py-3.5 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 transition">
+                    <p id="emailErrorMsg" class="text-[11px] text-rose-500 font-bold hidden pt-0.5"></p>
+                </div>
+            </div>
+
+            <div class="space-y-1.5">
+                <label class="text-[11px] font-black text-slate-600 uppercase tracking-wider block">AMOUNT (₹)</label>
+                <div id="withdrawAmountWrapper" class="relative flex items-center rounded-2xl border border-slate-300 bg-white transition">
+                    <span class="pl-4 pr-2 font-black text-slate-700 text-sm">₹</span>
+                    <input id="withdrawAmountInput" type="number" placeholder="Enter amount" class="w-full bg-transparent pr-4 py-3.5 text-xs font-bold text-slate-800 placeholder-slate-400 outline-none">
+                </div>
+                <p id="amountErrorMsg" class="text-[11px] text-rose-500 font-bold hidden pt-0.5"></p>
+                <p id="minWithdrawalHint" class="text-[11px] text-slate-500 font-medium pt-0.5">Minimum withdrawal ₹50</p>
+            </div>
+
+            <div class="space-y-2 pt-1">
+                <button onclick="submitWithdrawal()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 active:scale-[0.99] text-white font-black py-4 rounded-2xl text-sm transition shadow-lg shadow-emerald-500/25">
+                    Submit
+                </button>
+                <p class="text-[11px] text-center text-slate-400 font-medium">Processed within 24–48 hours</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONGRATULATIONS WITHDRAWAL SUCCESS MODAL -->
+    <div id="successWithdrawModal" class="fixed inset-0 bg-slate-900/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-white w-full max-w-sm rounded-[2.5rem] p-6 text-center space-y-5 shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl mx-auto flex items-center justify-center text-3xl shadow-inner border border-emerald-200">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div class="space-y-1.5">
+                <h3 class="font-black text-slate-900 text-2xl tracking-tight">Congratulations! 🎉</h3>
+                <p class="text-xs text-slate-500 font-medium">Your withdrawal request has been successfully submitted.</p>
+            </div>
+            <div class="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/80 rounded-2xl p-4 space-y-1">
+                <span class="text-[10px] font-black text-emerald-700 uppercase tracking-wider block">Withdrawn Amount & Timing</span>
+                <span id="successModalAmountText" class="text-3xl font-black text-emerald-900 block">₹0.00</span>
+                <span class="text-[11px] text-slate-700 font-bold block pt-1">Will be credited within 24–48 hours</span>
+            </div>
+            <button onclick="closeSuccessWithdrawModal()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 text-white font-black py-3.5 rounded-2xl text-xs transition shadow-lg shadow-emerald-500/20">
+                Done
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT CONTAINERS -->
+    <main class="max-w-md mx-auto p-4">
+
+        <!-- TAB 1: HOME / OFFERWALL -->
+        <section id="tab-home" class="tab-content space-y-5">
+            <!-- Top Home Header with Brand and Wallet Balance Badge -->
+            <div class="flex items-center justify-between pb-1">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center font-black text-sm shadow-sm">
+                        <i class="fa-solid fa-bolt text-xs"></i>
+                    </div>
+                    <span class="font-black text-slate-900 text-base tracking-tight">Techy Rewards</span>
+                </div>
+                <div onclick="switchTab('wallet')" class="flex items-center space-x-2 bg-white border border-slate-200/90 rounded-full px-3.5 py-1.5 shadow-sm cursor-pointer hover:border-emerald-500 transition">
+                    <div class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-black">
+                        <i class="fa-solid fa-bolt text-xs"></i>
+                    </div>
+                    <span id="homeWalletBalanceText" class="font-black text-xs text-slate-900">₹55.00</span>
+                </div>
+            </div>
+
+            <!-- Banner Slider / Promos -->
+            <div class="relative rounded-3xl p-5 text-white shadow-xl overflow-hidden bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600">
+                <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+                <div class="relative z-10 space-y-1.5">
+                    <span class="bg-white/20 backdrop-blur-md text-amber-300 font-black text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider">⚡ Daily Rewards</span>
+                    <h2 class="text-xl font-black leading-tight tracking-wide">Complete Offers & Earn Cash</h2>
+                </div>
+            </div>
+
+            <!-- ACTIVE OFFERS HEADER + COMPACT MY OFFERS BUTTON -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between px-1">
+                    <h3 class="font-black text-slate-900 text-xs uppercase tracking-wider">Active Offers</h3>
+                    <button onclick="openMyOffersScreen()" class="inline-flex items-center space-x-1.5 bg-white hover:border-emerald-500/50 active:scale-[0.98] border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm transition">
+                        <span class="font-black text-slate-800 text-[11px]">My Offers</span>
+                        <i class="fa-solid fa-arrow-right text-emerald-600 text-[10px]"></i>
+                    </button>
+                </div>
+
+                <!-- KYC & NON-KYC SECTION TOGGLE BELOW MY OFFERS -->
+                <div class="grid grid-cols-2 gap-1.5 bg-slate-200/80 p-1 rounded-2xl border border-slate-300/60">
+                    <button onclick="switchOfferCategoryFilter('kyc')" id="catFilter-kyc" class="py-2 text-xs font-black rounded-xl bg-white text-slate-900 shadow-sm transition">
+                        KYC
+                    </button>
+                    <button onclick="switchOfferCategoryFilter('non-kyc')" id="catFilter-non-kyc" class="py-2 text-xs font-black rounded-xl text-slate-600 hover:text-slate-900 transition">
+                        Non-KYC
+                    </button>
+                </div>
+
+                <div id="segmentActiveView" class="space-y-3">
+                    <!-- Dynamic task cards -->
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: INVITE & EARN -->
+        <section id="tab-invite" class="tab-content hidden space-y-5">
+            <!-- Distinct Minimalist Refer & Earn Banner Card -->
+            <div class="bg-white border-2 border-emerald-500/30 rounded-[2.5rem] p-6 space-y-5 shadow-lg">
+                <div class="flex items-center space-x-3.5">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center text-2xl shadow-md shrink-0">
+                        <i class="fa-solid fa-gift"></i>
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full uppercase tracking-wider">Referral Program</span>
+                        <h2 class="text-xl font-black text-slate-900 tracking-tight mt-1">Refer & Earn 50%</h2>
+                    </div>
+                </div>
+
+                <div class="bg-emerald-50/60 border border-emerald-200/80 rounded-2xl p-4 space-y-2">
+                    <h4 class="text-xs font-black text-emerald-900 uppercase tracking-wider flex items-center">
+                        <i class="fa-solid fa-circle-check mr-2 text-emerald-600"></i> Commission & Eligibility
+                    </h4>
+                    <ul class="space-y-1.5 text-xs text-slate-700 font-medium pl-1">
+                        <li class="flex items-start">
+                            <span class="text-emerald-600 font-bold mr-2">•</span>
+                            <span>Get <strong class="text-slate-900">50% commission</strong> on your friend's first 3 tasks.</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-emerald-600 font-bold mr-2">•</span>
+                            <span>Friend must complete at least <strong class="text-slate-900">3 Simple Tasks</strong> OR <strong class="text-slate-900">1 Prime Task</strong>.</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 pl-3.5 flex items-center justify-between gap-2">
+                    <span id="refLinkText" class="font-mono font-bold text-xs text-slate-700 truncate select-all">https://t.me/TechyEarningBot?start=ref_98765</span>
+                    <button onclick="copyRefLink()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-black text-xs shrink-0 shadow transition">
+                        Copy
+                    </button>
+                </div>
+
+                <div>
+                    <button onclick="shareLinkTelegram()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 text-white font-black py-3.5 rounded-2xl text-xs transition shadow-lg flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>Share on Telegram</span>
+                    </button>
+                </div>
+            </div>
+
+            <button onclick="openMyReferrals()" class="w-full bg-white hover:border-emerald-500/50 active:scale-[0.99] rounded-3xl p-4 shadow-md border border-slate-200/80 flex items-center justify-between transition text-left">
+                <div class="flex items-center space-x-3.5">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center text-lg shadow-md shadow-emerald-500/20 shrink-0">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-slate-900 text-sm tracking-tight">My Referrals</h3>
+                        <p class="text-[11px] text-slate-500 font-medium">Track 3-task & Prime task 50% earnings</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 shrink-0">
+                    <span id="totalReferralsBadge" class="bg-emerald-50 text-emerald-700 border border-emerald-200 font-black text-[11px] px-2.5 py-1 rounded-full">
+                        3 Friends
+                    </span>
+                    <i class="fa-solid fa-chevron-right text-slate-400 text-xs"></i>
+                </div>
+            </button>
+        </section>
+
+        <!-- TAB 3: WALLET & WITHDRAWAL -->
+        <section id="tab-wallet" class="tab-content hidden space-y-5">
+            <div class="bg-gradient-to-br from-emerald-50/90 via-white to-teal-50/70 border border-emerald-200/70 p-6 rounded-[2rem] space-y-4 shadow-sm">
+                <div class="space-y-1">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest block">AVAILABLE BALANCE</span>
+                    <h2 id="walletBalanceText" class="text-4xl font-black text-slate-900 tracking-tight">₹55.00</h2>
+                    <p class="text-xs text-slate-500 font-medium pt-0.5">Withdrawable to UPI & Gift Cards</p>
+                </div>
+
+                <button onclick="openWithdrawModal()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 active:scale-[0.99] text-white font-black py-4 rounded-2xl text-sm transition shadow-lg shadow-emerald-500/20">
+                    Withdraw
+                </button>
+            </div>
+
+            <div class="flex items-center justify-between px-1">
+                <h3 class="font-black text-slate-900 text-sm tracking-tight">Recent Transactions</h3>
+                <button onclick="openEarningHistory()" class="text-xs font-black text-emerald-600 hover:text-emerald-700 flex items-center space-x-1 transition">
+                    <span>See All</span>
+                    <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3.5">
+                <div class="grid grid-cols-2 bg-white p-1.5 rounded-full border border-slate-200/80 shadow-sm">
+                    <button onclick="switchWalletTab('earnings')" id="walletTab-earnings" class="py-2.5 text-xs font-black rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm transition">
+                        Earnings
+                    </button>
+                    <button onclick="switchWalletTab('withdrawal')" id="walletTab-withdrawal" class="py-2.5 text-xs font-black rounded-full text-slate-600 hover:text-slate-900 transition">
+                        Withdrawal
+                    </button>
+                </div>
+
+                <div id="transactionsListContainer" class="space-y-3"></div>
+            </div>
+        </section>
+
+        <!-- TAB 4: USER PROFILE -->
+        <section id="tab-profile" class="tab-content hidden space-y-4">
+            <div class="glass-card p-6 rounded-3xl space-y-4 shadow-sm">
+                <div class="flex items-center space-x-4">
+                    <div id="profileAvatarInitial" class="w-14 h-14 bg-gradient-to-tr from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-md shadow-emerald-500/20">
+                        T
+                    </div>
+                    <div>
+                        <h3 id="profileUsernameText" class="font-black text-slate-900 text-base">TechyEarners11</h3>
+                        <p class="text-xs text-slate-500">Member since Nov 2026</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <div class="bg-emerald-50/70 p-3.5 rounded-2xl text-center border border-emerald-100">
+                        <span class="text-[10px] text-emerald-600 font-black uppercase tracking-wider block">Total Earned</span>
+                        <span class="text-lg font-black text-slate-900">₹55.00</span>
+                    </div>
+                    <div class="bg-indigo-50/70 p-3.5 rounded-2xl text-center border border-indigo-100">
+                        <span class="text-[10px] text-indigo-600 font-black uppercase tracking-wider block">Withdrawn</span>
+                        <span class="text-lg font-black text-slate-900">₹0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card rounded-3xl divide-y divide-slate-100 shadow-sm overflow-hidden">
+                <a href="https://t.me/your_telegram_channel" target="_blank" class="p-4 flex items-center justify-between hover:bg-slate-50 transition">
+                    <div class="flex items-center space-x-3.5">
+                        <div class="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">
+                            <i class="fa-brands fa-telegram"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-900 text-xs">Join Telegram Channel</h4>
+                            <p class="text-[11px] text-slate-500">Get instant updates & new offers</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-angle-right text-slate-400 text-xs"></i>
+                </a>
+
+                <button onclick="openSupport()" class="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition text-left">
+                    <div class="flex items-center space-x-3.5">
+                        <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-lg">
+                            <i class="fa-solid fa-headset"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-900 text-xs">Customer Support</h4>
+                            <p class="text-[11px] text-slate-500">Chat directly with admin team</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-angle-right text-slate-400 text-xs"></i>
+                </button>
+
+                <button onclick="openRaiseTicket()" class="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition text-left">
+                    <div class="flex items-center space-x-3.5">
+                        <div class="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-lg">
+                            <i class="fa-solid fa-ticket"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-900 text-xs">Raise Ticket</h4>
+                            <p class="text-[11px] text-slate-500">Submit complaint or missing payment</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-angle-right text-slate-400 text-xs"></i>
+                </button>
+
+                <button onclick="openTermsModal()" class="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition text-left">
+                    <div class="flex items-center space-x-3.5">
+                        <div class="w-10 h-10 rounded-2xl bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-lg">
+                            <i class="fa-solid fa-file-contract"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-900 text-xs">Terms & Conditions</h4>
+                            <p class="text-[11px] text-slate-500">Read policies, wallet & task rules</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-angle-right text-slate-400 text-xs"></i>
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FULL PAGE TERMS & CONDITIONS SCREEN -->
+    <div id="termsScreen" class="fixed inset-0 bg-[#f8fafc] z-50 hidden overflow-y-auto p-4 pb-10">
+        <div class="max-w-md mx-auto w-full space-y-5">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                <button onclick="closeTermsModal()" class="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center hover:bg-slate-100 transition shadow-sm">
+                    <i class="fa-solid fa-chevron-left text-sm"></i>
+                </button>
+                <span class="text-xs font-black tracking-widest text-emerald-600 uppercase">Terms & Conditions</span>
+                <div class="w-9"></div>
+            </div>
+
+            <div class="bg-white border border-slate-200/80 rounded-3xl p-5 space-y-4 shadow-sm text-xs text-slate-700 leading-relaxed">
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-sm">1. Introduction & Acceptance</h3>
+                    <p>Welcome to Techy Rewards. By accessing or using our Telegram Mini App, you agree to abide by these Terms & Conditions. If you do not agree with any clause, please refrain from using our services.</p>
+                </div>
+
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-sm">2. Earnings & No Financial Guarantee</h3>
+                    <p>We do not guarantee any fixed earnings or monetary returns. Task rewards are dependent on successful verification and compliance by third-party offer partners. Payouts are subject to anti-fraud checks.</p>
+                </div>
+
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-sm">3. Task Approval & Wallet Balance</h3>
+                    <p>Once a task is successfully approved by our system or advertisers, the cashback/reward is credited to your in-app wallet. <strong>The wallet balance is usable strictly within the app</strong> for withdrawals to eligible UPI IDs or Gift Cards.</p>
+                </div>
+
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-sm">4. Withdrawals & Payout Processing</h3>
+                    <p>Withdrawal requests are processed within 24–48 hours. Users must provide accurate UPI IDs or voucher contact details. Techy Reward is not responsible for failed transactions caused by incorrect user-submitted payment details.</p>
+                </div>
+
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-sm">5. Referral Program & Commissions</h3>
+                    <p>Our 50% referral commission applies to the <strong>first 3 completed & approved tasks</strong> OR upon completing at least <strong>1 PRIME task</strong> by each genuine friend who joins via your unique referral link. Fraudulent or self-referrals will result in immediate account termination and forfeiture of balance.</p>
+                </div>
+
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-sm">6. Compliance & Usage Laws</h3>
+                    <p>Users must meet the required age eligibility (e.g., 18+ for certain financial or KYC offers, and 21+ where specified) and comply with all applicable local laws. Any misuse, automation scripts, or bot activities will lead to permanent bans.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAVIGATION BAR -->
+    <nav class="fixed bottom-0 left-0 right-0 glass-nav py-2.5 px-6 flex justify-between items-center z-40 max-w-md mx-auto shadow-lg">
+        <button onclick="switchTab('home')" id="nav-home" class="nav-item flex flex-col items-center text-emerald-600">
+            <i class="fa-solid fa-house text-lg"></i>
+            <span class="text-[10px] font-black mt-0.5">Home</span>
+        </button>
+        <button onclick="switchTab('invite')" id="nav-invite" class="nav-item flex flex-col items-center text-slate-400">
+            <i class="fa-solid fa-user-group text-lg"></i>
+            <span class="text-[10px] font-black mt-0.5">Invite</span>
+        </button>
+        <button onclick="switchTab('wallet')" id="nav-wallet" class="nav-item flex flex-col items-center text-slate-400">
+            <i class="fa-solid fa-wallet text-lg"></i>
+            <span class="text-[10px] font-black mt-0.5">Wallet</span>
+        </button>
+        <button onclick="switchTab('profile')" id="nav-profile" class="nav-item flex flex-col items-center text-slate-400">
+            <i class="fa-solid fa-user text-lg"></i>
+            <span class="text-[10px] font-black mt-0.5">Profile</span>
+        </button>
+    </nav>
+
+    <script>
+        // Init Telegram WebApp SDK & Extract Real User ID & Name
+        let currentTelegramUser = { id: '987654321', first_name: 'TechyUser11' };
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+            if (window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
+                currentTelegramUser = window.Telegram.WebApp.initDataUnsafe.user;
+            }
+        }
+
+        // State Data
+        let userBalance = 55.00;
+        let currentMyOffersTab = 'ongoing';
+        let currentOfferCategoryFilter = 'kyc';
+        let currentWalletTab = 'earnings';
+        let selectedPayoutCategory = 'upi';
+        let selectedGiftCardBrand = 'PhonePe';
+        let selectedTaskId = null;
+        let currentHistoryFilter = 'all';
+        const BOT_USERNAME = 'TechyEarningBot';
+        let pendingWithdrawalInfo = null;
+
+        // Unified Transactions Ledger (Earnings vs Withdrawals)
+        let transactionsData = [
+            {
+                id: 'TXN_105',
+                category: 'earnings',
+                type: 'referral',
+                badge: 'Referral',
+                title: '₹100.00 Cashback',
+                subtitle: '50% Commission — Rohan Sharma (Angel One)',
+                status: 'Approved',
+                date: '12 Nov, 04:15 PM'
+            },
+            {
+                id: 'TXN_104',
+                category: 'earnings',
+                type: 'completed',
+                badge: 'Task',
+                title: '₹10.00 Cashback',
+                subtitle: 'Task Reward — Surveoo Offer',
+                status: 'Completed',
+                date: '11 Nov, 07:30 PM'
+            },
+            {
+                id: 'TXN_fail_1',
+                category: 'earnings',
+                type: 'failed',
+                badge: 'Failed Task',
+                title: '₹200.00 Task Attempt',
+                subtitle: 'Task Rejected — Upstox (KYC Incomplete)',
+                status: 'Failed',
+                date: '11 Nov, 05:00 PM'
+            },
+            {
+                id: 'TXN_103',
+                category: 'withdrawal',
+                type: 'withdrawal',
+                badge: 'UPI',
+                title: '₹150.00 Withdrawal',
+                subtitle: 'UPI Payout — user@upi',
+                status: 'Pending',
+                date: '11 Nov, 02:10 PM'
+            },
+            {
+                id: 'TXN_102',
+                category: 'earnings',
+                type: 'referral',
+                badge: 'Referral',
+                title: '₹100.00 Cashback',
+                subtitle: '50% Commission — Priya Verma (Upstox)',
+                status: 'Approved',
+                date: '10 Nov, 06:45 PM'
+            },
+            {
+                id: 'TXN_101',
+                category: 'earnings',
+                type: 'completed',
+                badge: 'Task',
+                title: '₹10.00 Cashback',
+                subtitle: 'Task Reward — King Opinion Survey',
+                status: 'Completed',
+                date: '10 Nov, 11:20 AM'
+            }
+        ];
+
+        // Sample Referrals Data
+        let referralsData = [
+            {
+                id: 101,
+                name: 'Rohan Sharma',
+                username: '@rohan_s',
+                joinedDate: '10 Nov 2026',
+                completedTasks: [
+                    { title: 'Angel One', tag: 'PRIME', taskReward: 200, commission: 100 },
+                    { title: 'King Opinion', tag: 'NON-KYC', taskReward: 10, commission: 5 }
+                ]
+            },
+            {
+                id: 102,
+                name: 'Priya Verma',
+                username: '@priya_v99',
+                joinedDate: '11 Nov 2026',
+                completedTasks: [
+                    { title: 'Upstox', tag: 'PRIME', taskReward: 200, commission: 100 },
+                    { title: 'Surveoo', tag: 'NON-KYC', taskReward: 10, commission: 5 }
+                ]
+            },
+            {
+                id: 103,
+                name: 'Amit Patel',
+                username: '@amit_p',
+                joinedDate: '12 Nov 2026',
+                completedTasks: [
+                    { title: 'King Opinion', tag: 'NON-KYC', taskReward: 10, commission: 5 }
+                ]
+            }
+        ];
+
+        // Tasks Data (category: 'kyc' expires in 12 days | category: 'non-kyc' expires in 8 days)
+        let tasksData = [
+            { 
+                id: 1, 
+                title: 'King Opinion', 
+                category: 'non-kyc',
+                tag: 'NON-KYC', 
+                desc: 'Complete Profile survey', 
+                reward: 10, 
+                icon: 'fa-crown', 
+                color: 'from-purple-500 to-indigo-500', 
+                link: 'https://example.com/offer1',
+                status: 'available',
+                startedAt: null,
+                conditions: [
+                    'Register with your active mobile number.',
+                    'Complete your profile survey completely.',
+                    'Submit registered mobile number & proof screenshot in My Offers.'
+                ]
+            },
+            { 
+                id: 2, 
+                title: 'Surveoo', 
+                category: 'non-kyc',
+                tag: 'NON-KYC', 
+                desc: 'Answer quick 2 min survey', 
+                reward: 10, 
+                icon: 'fa-square-poll-vertical', 
+                color: 'from-cyan-500 to-blue-500', 
+                link: 'https://example.com/offer2',
+                status: 'completed',
+                startedAt: null,
+                conditions: [
+                    'Answer all questions honestly.',
+                    'Reach the final thank-you completion screen.',
+                    'Take a screenshot of completion screen.'
+                ]
+            },
+            { 
+                id: 3, 
+                title: 'Angel One', 
+                category: 'kyc',
+                tag: 'PRIME', 
+                desc: 'Open Free Demat Account', 
+                reward: 200, 
+                icon: 'fa-chart-line', 
+                color: 'from-emerald-400 to-teal-500', 
+                link: 'https://example.com/offer3',
+                status: 'available',
+                startedAt: null,
+                conditions: [
+                    'Open link and complete Aadhaar KYC verification.',
+                    'Account must be activated successfully.',
+                    'Submit Client ID / Mobile Number.'
+                ]
+            },
+            { 
+                id: 4, 
+                title: 'Upstox', 
+                category: 'kyc',
+                tag: 'PRIME', 
+                desc: 'Open Free Demat Account', 
+                reward: 200, 
+                icon: 'fa-arrow-trend-up', 
+                color: 'from-pink-500 to-rose-500', 
+                link: 'https://example.com/offer4',
+                status: 'available',
+                startedAt: null,
+                conditions: [
+                    'Complete signup process via PAN & Aadhaar.',
+                    'Submit registered mobile number in My Offers tab.'
+                ]
+            },
+            { 
+                id: 5, 
+                title: 'Pocket Survey', 
+                category: 'non-kyc',
+                tag: 'NON-KYC', 
+                desc: 'Daily Opinion Poll', 
+                reward: 15, 
+                icon: 'fa-clipboard-check', 
+                color: 'from-amber-500 to-orange-500', 
+                link: 'https://example.com/offer5',
+                status: 'available',
+                startedAt: null,
+                conditions: [
+                    'Complete quick opinion poll.',
+                    'Submit completion screenshot.'
+                ]
+            },
+            { 
+                id: 6, 
+                title: 'Groww Demat', 
+                category: 'kyc',
+                tag: 'PRIME', 
+                desc: 'Instant Demat Activation', 
+                reward: 150, 
+                icon: 'fa-seedling', 
+                color: 'from-teal-500 to-emerald-600', 
+                link: 'https://example.com/offer6',
+                status: 'available',
+                startedAt: null,
+                conditions: [
+                    'Complete Aadhaar eSign KYC.',
+                    'Submit proof.'
+                ]
+            }
+        ];
+
+        // Removed automatic time-based expiration logic. Tasks remain available indefinitely unless manually changed.
+        function checkOfferExpirations() {
+            // Disabled auto-expiration
+        }
+
+        window.onload = function() {
+            if (window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.ready();
+                window.Telegram.WebApp.expand();
+            }
+            checkOfferExpirations();
+            initUserData();
+            initUniqueReferralLink();
+            renderTasks();
+            renderMyOffers();
+            renderReferrals();
+            renderWalletTransactions();
+            renderEarningHistory();
+        };
+
+        function initUserData() {
+            const userName = currentTelegramUser.first_name || 'TechyUser11';
+            const usernameEl = document.getElementById('profileUsernameText');
+            const avatarEl = document.getElementById('profileAvatarInitial');
+            if (usernameEl) usernameEl.innerText = userName;
+            if (avatarEl) avatarEl.innerText = userName.charAt(0).toUpperCase();
+        }
+
+        function initUniqueReferralLink() {
+            const uniqueRefCode = `ref_${currentTelegramUser.id}`;
+            const uniqueLink = `https://t.me/${BOT_USERNAME}?start=${uniqueRefCode}`;
+            const refEl = document.getElementById('refLinkText');
+            if (refEl) refEl.innerText = uniqueLink;
+        }
+
+        // Switch Between KYC & Non-KYC Offers on Home
+        function switchOfferCategoryFilter(category) {
+            currentOfferCategoryFilter = category;
+            ['kyc', 'non-kyc'].forEach(cat => {
+                const btn = document.getElementById(`catFilter-${cat}`);
+                if (btn) {
+                    btn.className = cat === category
+                        ? "py-2 text-xs font-black rounded-xl bg-white text-slate-900 shadow-sm transition"
+                        : "py-2 text-xs font-black rounded-xl text-slate-600 hover:text-slate-900 transition";
+                }
+            });
+            renderTasks();
+        }
+
+        function renderTasks() {
+            checkOfferExpirations();
+            const activeContainer = document.getElementById('segmentActiveView');
+            if (!activeContainer) return;
+
+            const availableTasks = tasksData.filter(t => t.status === 'available' && t.category === currentOfferCategoryFilter);
+
+            if (availableTasks.length === 0) {
+                activeContainer.innerHTML = `<div class="glass-card p-6 rounded-2xl text-center text-xs text-slate-500 font-bold">No active ${currentOfferCategoryFilter.toUpperCase()} offers available right now!</div>`;
+            } else {
+                activeContainer.innerHTML = availableTasks.map(task => `
+                    <div onclick="openTaskDetail(${task.id})" class="group glass-card p-4 rounded-2xl hover:border-emerald-500/50 transition-all duration-300 cursor-pointer flex items-center justify-between shadow-sm hover:shadow-md">
+                        <div class="flex items-center space-x-3.5">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr ${task.color} text-white flex items-center justify-center font-bold text-xl shadow-md shrink-0 group-hover:scale-105 transition-transform">
+                                <i class="fa-solid ${task.icon}"></i>
+                            </div>
+                            <div class="space-y-1">
+                                <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${task.tag}</span>
+                                <h4 class="font-black text-slate-900 text-sm tracking-wide group-hover:text-emerald-600 transition-colors">${task.title}</h4>
+                                <p class="text-xs text-slate-500">${task.desc}</p>
+                            </div>
+                        </div>
+                        <div class="shrink-0">
+                            <span class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-sm">
+                                +₹${task.reward}
+                            </span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Open & Close Full-Screen My Offers Screen
+        function openMyOffersScreen() {
+            checkOfferExpirations();
+            renderMyOffers();
+            document.getElementById('myOffersScreen').classList.remove('hidden');
+        }
+
+        function closeMyOffersScreen() {
+            document.getElementById('myOffersScreen').classList.add('hidden');
+        }
+
+        function switchMyOffersTab(tab) {
+            currentMyOffersTab = tab;
+            ['ongoing', 'completed', 'expired'].forEach(t => {
+                const btn = document.getElementById(`myOfferTab-${t}`);
+                if (btn) {
+                    btn.className = t === tab
+                        ? "py-2 text-xs font-black rounded-xl bg-white text-slate-900 shadow-sm transition"
+                        : "py-2 text-xs font-black rounded-xl text-slate-600 hover:text-slate-900 transition";
+                }
+            });
+            renderMyOffers();
+        }
+
+        function renderMyOffers() {
+            checkOfferExpirations();
+            const container = document.getElementById('myOffersContainer');
+            if (!container) return;
+
+            let filtered = [];
+            if (currentMyOffersTab === 'ongoing') {
+                filtered = tasksData.filter(t => t.status === 'started' || t.status === 'submitted');
+            } else if (currentMyOffersTab === 'completed') {
+                filtered = tasksData.filter(t => t.status === 'completed');
+            } else if (currentMyOffersTab === 'expired') {
+                filtered = tasksData.filter(t => t.status === 'expired');
+            }
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="bg-white border border-slate-200 rounded-3xl p-6 text-center text-xs text-slate-500 font-semibold">No ${currentMyOffersTab} offers found.</div>`;
+                return;
+            }
+
+            if (currentMyOffersTab === 'ongoing') {
+                container.innerHTML = filtered.map(task => {
+                    return `
+                        <div onclick="closeMyOffersScreen(); openTaskDetail(${task.id})" class="bg-white border border-slate-200/80 p-4 rounded-3xl shadow-sm flex items-center justify-between cursor-pointer hover:border-emerald-500/50 transition">
+                            <div class="flex items-center space-x-3.5">
+                                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr ${task.color} text-white flex items-center justify-center font-bold text-base shrink-0 shadow-sm">
+                                    <i class="fa-solid ${task.icon}"></i>
+                                </div>
+                                <div class="space-y-1">
+                                    <div class="flex items-center space-x-1.5">
+                                        <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${task.tag}</span>
+                                    </div>
+                                    <h4 class="font-black text-slate-900 text-sm">${task.title}</h4>
+                                    <p class="text-xs text-slate-500">${task.desc}</p>
+                                </div>
+                            </div>
+                            <div class="shrink-0 text-right">
+                                <span class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-sm block">
+                                    +₹${task.reward}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else if (currentMyOffersTab === 'completed') {
+                container.innerHTML = filtered.map(task => `
+                    <div onclick="openTaskDetail(${task.id})" class="bg-white border border-slate-200/80 rounded-3xl p-4 flex items-center justify-between shadow-sm cursor-pointer">
+                        <div class="flex items-center space-x-3.5">
+                            <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr ${task.color} text-white flex items-center justify-center font-bold text-base shrink-0">
+                                <i class="fa-solid ${task.icon}"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-black text-slate-900 text-sm">${task.title}</h4>
+                                <p class="text-xs text-slate-500 font-medium">${task.desc}</p>
+                            </div>
+                        </div>
+                        <div class="text-right space-y-1">
+                            <span class="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-full block">Completed</span>
+                            <span class="font-black text-emerald-700 text-xs block">+₹${task.reward}</span>
+                        </div>
+                    </div>
+                `).join('');
+            } else if (currentMyOffersTab === 'expired') {
+                container.innerHTML = filtered.map(task => `
+                    <div class="bg-white/95 border border-slate-200/90 rounded-3xl p-4 flex items-center justify-between opacity-90 cursor-not-allowed select-none shadow-sm">
+                        <div class="flex items-center space-x-3.5">
+                            <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr ${task.color} opacity-75 text-white flex items-center justify-center font-bold text-base shrink-0">
+                                <i class="fa-solid ${task.icon}"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center space-x-1.5">
+                                    <h4 class="font-black text-slate-800 text-sm">${task.title}</h4>
+                                    <span class="text-[9px] font-black bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full uppercase">${task.tag}</span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 font-medium">${task.desc}</p>
+                            </div>
+                        </div>
+                        <div class="text-right space-y-1">
+                            <span class="inline-flex items-center space-x-1 bg-rose-100 text-rose-700 text-[10px] font-black px-2.5 py-1 rounded-full">
+                                <i class="fa-solid fa-lock text-[9px]"></i>
+                                <span>Expired</span>
+                            </span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Open Task Detail Screen (Strictly blocks expired offers)
+        function openTaskDetail(taskId) {
+            checkOfferExpirations();
+            const task = tasksData.find(t => t.id === taskId);
+            if (!task) return;
+
+            if (task.status === 'expired') {
+                showToast("This offer has expired and can no longer be accessed.");
+                return;
+            }
+
+            selectedTaskId = taskId;
+
+            document.getElementById('detailTaskTitle').innerText = task.title;
+            document.getElementById('detailTaskDesc').innerText = task.desc;
+            document.getElementById('detailTaskReward').innerText = `${task.reward}.00`;
+            document.getElementById('detailTaskIcon').className = `w-20 h-20 rounded-2xl bg-gradient-to-tr ${task.color} text-white flex items-center justify-center text-3xl shadow-md shrink-0`;
+            document.getElementById('detailTaskIcon').innerHTML = `<i class="fa-solid ${task.icon}"></i>`;
+
+            const conditionsContainer = document.getElementById('detailTaskConditions');
+            conditionsContainer.innerHTML = task.conditions.map((c, index) => `
+                <div class="flex items-start space-x-2.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                    <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5">${index + 1}</span>
+                    <p class="leading-relaxed text-slate-700">${c}</p>
+                </div>
+            `).join('');
+
+            document.getElementById('taskDetailScreen').classList.remove('hidden');
+        }
+
+        function closeTaskDetail() {
+            document.getElementById('taskDetailScreen').classList.add('hidden');
+            selectedTaskId = null;
+        }
+
+        function executeStartTask() {
+            if (!selectedTaskId) return;
+
+            const task = tasksData.find(t => t.id === selectedTaskId);
+            if (!task) return;
+
+            // Shift task from active to ongoing state and set timestamp
+            task.status = 'started';
+            task.startedAt = Date.now();
+
+            closeTaskDetail();
+            renderTasks();
+
+            // Opens the external offer URL
+            openOfferUrl(task.link);
+        }
+
+        function openOfferUrl(url) {
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
+                window.Telegram.WebApp.openLink(url);
+            } else {
+                window.open(url, '_blank');
+            }
+        }
+
+        function submitTaskProof(taskId) {
+            const task = tasksData.find(t => t.id === taskId);
+            if (!task || task.status === 'expired') return;
+
+            const mobileInput = document.getElementById(`mobile_${taskId}`);
+            const proofInput = document.getElementById(`proof_${taskId}`);
+
+            const mobile = mobileInput ? mobileInput.value.trim() : '';
+            const proof = proofInput ? proofInput.value.trim() : '';
+
+            if (!mobile || !proof) {
+                return;
+            }
+
+            task.status = 'submitted';
+            renderMyOffers();
+        }
+
+        // Wallet Tab Switching
+        function switchWalletTab(tab) {
+            currentWalletTab = tab;
+            const earningsBtn = document.getElementById('walletTab-earnings');
+            const withdrawalBtn = document.getElementById('walletTab-withdrawal');
+
+            if (tab === 'earnings') {
+                earningsBtn.className = "py-2.5 text-xs font-black rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm transition";
+                withdrawalBtn.className = "py-2.5 text-xs font-black rounded-full text-slate-600 hover:text-slate-900 transition";
+            } else {
+                withdrawalBtn.className = "py-2.5 text-xs font-black rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm transition";
+                earningsBtn.className = "py-2.5 text-xs font-black rounded-full text-slate-600 hover:text-slate-900 transition";
+            }
+            renderWalletTransactions();
+        }
+
+        function renderWalletTransactions() {
+            const container = document.getElementById('transactionsListContainer');
+            if (!container) return;
+
+            const filtered = transactionsData.filter(tx => tx.category === currentWalletTab);
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="bg-white border border-slate-200 rounded-3xl p-6 text-center text-xs text-slate-500 font-semibold">No ${currentWalletTab} records yet.</div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(tx => {
+                const iconClass = tx.category === 'withdrawal' ? 'fa-arrow-up-right-from-square' : 'fa-user-plus';
+                const badgeStyle = tx.badge === 'Referral'
+                    ? 'bg-purple-100 text-purple-700'
+                    : (tx.badge === 'Task' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700');
+                const statusStyle = tx.status === 'Pending'
+                    ? 'bg-amber-100 text-amber-800'
+                    : 'bg-emerald-100 text-emerald-800';
+
+                // Check if withdrawal is pending to show the processing time note
+                let pendingNotice = '';
+                if (tx.category === 'withdrawal' && tx.status === 'Pending') {
+                    pendingNotice = `
+                        <div class="mt-1.5 flex items-center space-x-1.5 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-xl">
+                            <i class="fa-solid fa-clock text-[10px] text-amber-600"></i>
+                            <span class="text-[10px] font-bold text-amber-800">Withdrawal will be processed within 24-48 hours</span>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="bg-white border border-slate-200/80 rounded-3xl p-4 space-y-2 shadow-sm">
+                        <div class="flex items-center space-x-3.5">
+                            <div class="w-12 h-12 rounded-2xl bg-slate-100 text-indigo-600 flex items-center justify-center text-base shrink-0">
+                                <i class="fa-solid ${iconClass}"></i>
+                            </div>
+                            <div class="flex-1 min-w-0 space-y-1">
+                                <div class="flex items-center justify-between gap-2">
+                                    <h4 class="font-black text-slate-900 text-sm truncate">${tx.title}</h4>
+                                    <span class="text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0 ${statusStyle}">${tx.status}</span>
+                                </div>
+                                <div class="flex items-center space-x-1.5">
+                                    <span class="text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${badgeStyle}">${tx.badge}</span>
+                                    <p class="text-xs text-slate-600 font-medium truncate">${tx.subtitle}</p>
+                                </div>
+                                <span class="text-[11px] text-slate-400 font-medium block">${tx.date}</span>
+                            </div>
+                        </div>
+                        ${pendingNotice}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Earning History Screen
+        function openEarningHistory() {
+            renderEarningHistory();
+            document.getElementById('earningHistoryScreen').classList.remove('hidden');
+        }
+
+        function closeEarningHistory() {
+            document.getElementById('earningHistoryScreen').classList.add('hidden');
+        }
+
+        function filterEarningHistory(filter) {
+            currentHistoryFilter = filter;
+            ['all', 'completed', 'failed', 'referral'].forEach(f => {
+                const btn = document.getElementById(`histFilter-${f}`);
+                if (btn) {
+                    btn.className = f === filter
+                        ? "px-4 py-2 rounded-full text-xs font-black bg-emerald-600 text-white shadow-sm shrink-0 transition"
+                        : "px-4 py-2 rounded-full text-xs font-black bg-white text-slate-600 border border-slate-200 hover:text-slate-900 shrink-0 transition";
+                }
+            });
+            renderEarningHistory();
+        }
+
+        function renderEarningHistory() {
+            const container = document.getElementById('earningHistoryContainer');
+            if (!container) return;
+
+            let items = transactionsData.filter(tx => tx.category === 'earnings');
+
+            if (currentHistoryFilter === 'completed') {
+                items = items.filter(tx => tx.type === 'completed');
+            } else if (currentHistoryFilter === 'failed') {
+                items = items.filter(tx => tx.type === 'failed');
+            } else if (currentHistoryFilter === 'referral') {
+                items = items.filter(tx => tx.type === 'referral');
+            }
+
+            if (items.length === 0) {
+                container.innerHTML = `<div class="bg-white border border-slate-200 rounded-3xl p-6 text-center text-xs text-slate-500 font-semibold">No history found for this filter.</div>`;
+                return;
+            }
+
+            container.innerHTML = items.map(tx => {
+                let badgeStyle = 'bg-blue-100 text-blue-700';
+                let statusStyle = 'bg-emerald-100 text-emerald-800';
+                let icon = 'fa-circle-check';
+
+                if (tx.type === 'referral') {
+                    badgeStyle = 'bg-purple-100 text-purple-700';
+                    icon = 'fa-user-plus';
+                } else if (tx.type === 'failed') {
+                    badgeStyle = 'bg-rose-100 text-rose-700';
+                    statusStyle = 'bg-rose-100 text-rose-800';
+                    icon = 'fa-circle-xmark';
+                }
+
+                return `
+                    <div class="bg-white border border-slate-200/80 rounded-3xl p-4 flex items-center space-x-3.5 shadow-sm">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-100 text-indigo-600 flex items-center justify-center text-base shrink-0">
+                            <i class="fa-solid ${icon}"></i>
+                        </div>
+                        <div class="flex-1 min-w-0 space-y-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h4 class="font-black text-slate-900 text-sm truncate">${tx.title}</h4>
+                                <span class="text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0 ${statusStyle}">${tx.status}</span>
+                            </div>
+                            <div class="flex items-center space-x-1.5">
+                                <span class="text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${badgeStyle}">${tx.badge}</span>
+                                <p class="text-xs text-slate-600 font-medium truncate">${tx.subtitle}</p>
+                            </div>
+                            <span class="text-[11px] text-slate-400 font-medium block">${tx.date}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Withdraw Modal
+        function openWithdrawModal() {
+            document.getElementById('withdrawModal').classList.remove('hidden');
+        }
+
+        function closeWithdrawModal() {
+            document.getElementById('withdrawModal').classList.add('hidden');
+        }
+
+        function closeSuccessWithdrawModal() {
+            document.getElementById('successWithdrawModal').classList.add('hidden');
+            if (pendingWithdrawalInfo) {
+                transactionsData.unshift(pendingWithdrawalInfo);
+                pendingWithdrawalInfo = null;
+                switchWalletTab('withdrawal');
+                renderEarningHistory();
+            }
+        }
+
+        function selectPayoutCategory(category) {
+            selectedPayoutCategory = category;
+            const upiTab = document.getElementById('methodTab-upi');
+            const gcTab = document.getElementById('methodTab-giftcard');
+            const upiForm = document.getElementById('payoutForm-upi');
+            const gcForm = document.getElementById('payoutForm-giftcard');
+
+            if (category === 'upi') {
+                upiTab.className = "py-3 rounded-xl font-black text-xs bg-white text-slate-900 shadow-sm border-2 border-emerald-500/40 transition";
+                gcTab.className = "py-3 rounded-xl font-black text-xs text-slate-500 hover:text-slate-900 transition";
+                upiForm.classList.remove('hidden');
+                gcForm.classList.add('hidden');
+            } else {
+                gcTab.className = "py-3 rounded-xl font-black text-xs bg-white text-slate-900 shadow-sm border-2 border-emerald-500/40 transition";
+                upiTab.className = "py-3 rounded-xl font-black text-xs text-slate-500 hover:text-slate-900 transition";
+                gcForm.classList.remove('hidden');
+                upiForm.classList.add('hidden');
+            }
+        }
+
+        function selectGiftCardBrand(brand) {
+            selectedGiftCardBrand = brand;
+            ['PhonePe', 'Amazon Pay', 'Google Play'].forEach(b => {
+                const btn = document.getElementById(`gc-${b}`);
+                if (btn) {
+                    btn.className = b === brand
+                        ? "gc-brand-btn p-3 rounded-2xl border-2 border-emerald-500 bg-emerald-50/60 text-center space-y-1.5 transition"
+                        : "gc-brand-btn p-3 rounded-2xl border border-slate-200 bg-white text-center space-y-1.5 transition";
+                }
+            });
+        }
+
+        function openMyReferrals() {
+            renderReferrals();
+            document.getElementById('myReferralsScreen').classList.remove('hidden');
+        }
+
+        function closeMyReferrals() {
+            document.getElementById('myReferralsScreen').classList.add('hidden');
+        }
+
+        function showToast(message) {
+            // Disabled popup toast messages
+        }
+
+        function renderReferrals() {
+            const listContainer = document.getElementById('referralsListContainer');
+            if (!listContainer) return;
+
+            const totalFriends = referralsData.length;
+            let totalCommission = 0;
+
+            referralsData.forEach(friend => {
+                friend.completedTasks.forEach(t => {
+                    totalCommission += t.commission;
+                });
+            });
+
+            document.getElementById('totalReferralsBadge').innerText = `${totalFriends} Friend${totalFriends === 1 ? '' : 's'}`;
+            document.getElementById('statTotalInvited').innerText = totalFriends;
+            document.getElementById('statTotalCommission').innerText = `₹${totalCommission.toFixed(2)}`;
+
+            if (totalFriends === 0) {
+                listContainer.innerHTML = `<div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-center text-xs text-slate-500 font-semibold">No referrals yet. Share your link to start earning 50% lifetime commission!</div>`;
+                return;
+            }
+
+            listContainer.innerHTML = referralsData.map(friend => {
+                const completedCount = friend.completedTasks.length;
+                const totalEarned = friend.completedTasks.reduce((sum, t) => sum + t.commission, 0);
+
+                return `
+                    <div class="bg-emerald-50/50 border border-emerald-200/70 rounded-3xl p-4 flex items-center justify-between shadow-sm">
+                        <div class="flex items-center space-x-3.5">
+                            <div class="w-11 h-11 rounded-full bg-slate-900 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-sm">
+                                ${friend.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div class="space-y-0.5">
+                                <h4 class="font-black text-slate-900 text-xs tracking-wide uppercase">${friend.name}</h4>
+                                <p class="text-xs font-bold text-slate-700">${completedCount}/3 Offer Completed</p>
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="text-base font-black text-slate-900 block">₹${totalEarned.toFixed(0)}</span>
+                            <span class="text-[10px] text-slate-500 font-medium block">You will earn</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.replace('text-emerald-600', 'text-slate-400'));
+            
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`nav-${tab}`).classList.replace('text-slate-400', 'text-emerald-600');
+        }
+
+        function copyRefLink() {
+            const refText = document.getElementById('refLinkText').innerText;
+            const tempInput = document.createElement('input');
+            tempInput.value = refText;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+        }
+
+        function shareLinkTelegram() {
+            const refText = document.getElementById('refLinkText').innerText;
+            const promoMsg = `⚡ Earn Daily Cash with Techy Earning! Complete simple offers & withdraw via UPI.\n\nJoin with my link:`;
+            const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(refText)}&text=${encodeURIComponent(promoMsg)}`;
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink) {
+                window.Telegram.WebApp.openTelegramLink(shareUrl);
+            } else {
+                window.open(shareUrl, '_blank');
+            }
+        }
+
+        function triggerInputAlert(elementId) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            el.classList.add('input-alert-shake');
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+                window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            }
+            setTimeout(() => {
+                el.classList.remove('input-alert-shake');
+            }, 450);
+        }
+
+        function submitWithdrawal() {
+            let badgeLabel = 'UPI';
+            let subtitleText = '';
+
+            // Reset error states
+            const upiInput = document.getElementById('upiIdInput');
+            const upiError = document.getElementById('upiErrorMsg');
+            if (upiInput) {
+                upiInput.classList.remove('border-rose-500', 'bg-rose-50');
+            }
+            if (upiError) {
+                upiError.classList.add('hidden');
+                upiError.innerText = '';
+            }
+
+            const gcInput = document.getElementById('giftCardContactInput');
+            const emailError = document.getElementById('emailErrorMsg');
+            if (gcInput) {
+                gcInput.classList.remove('border-rose-500', 'bg-rose-50');
+            }
+            if (emailError) {
+                emailError.classList.add('hidden');
+                emailError.innerText = '';
+            }
+
+            const amountWrapper = document.getElementById('withdrawAmountWrapper');
+            const amountInput = document.getElementById('withdrawAmountInput');
+            const amountError = document.getElementById('amountErrorMsg');
+            const amountHint = document.getElementById('minWithdrawalHint');
+            if (amountWrapper) {
+                amountWrapper.classList.remove('border-rose-500', 'bg-rose-50');
+            }
+            if (amountError) {
+                amountError.classList.add('hidden');
+                amountError.innerText = '';
+            }
+            if (amountHint) {
+                amountHint.classList.remove('hidden');
+            }
+
+            if (selectedPayoutCategory === 'upi') {
+                const upiId = upiInput ? upiInput.value.trim() : '';
+                const atIndex = upiId.indexOf('@');
+                // Check if @ is missing or if there is nothing after @
+                if (!upiId || atIndex === -1 || atIndex === upiId.length - 1) {
+                    if (upiInput) {
+                        upiInput.classList.add('border-rose-500', 'bg-rose-50');
+                    }
+                    if (upiError) {
+                        upiError.innerText = 'Please enter a valid UPI ID (e.g. name@upi)';
+                        upiError.classList.remove('hidden');
+                    }
+                    return;
+                }
+                badgeLabel = 'UPI';
+                subtitleText = `UPI Payout — ${upiId} (Withdrawal will be processed within 24-48 hours)`;
+            } else {
+                const email = gcInput ? gcInput.value.trim() : '';
+                const atIndex = email.indexOf('@');
+                if (!email || atIndex === -1 || atIndex === email.length - 1) {
+                    if (gcInput) {
+                        gcInput.classList.add('border-rose-500', 'bg-rose-50');
+                    }
+                    if (emailError) {
+                        emailError.innerText = 'Please enter a valid email address';
+                        emailError.classList.remove('hidden');
+                    }
+                    return;
+                }
+                badgeLabel = 'Gift Card';
+                subtitleText = `${selectedGiftCardBrand} Voucher — ${email} (Withdrawal will be processed within 24-48 hours)`;
+            }
+
+            const amount = parseFloat(amountInput ? amountInput.value : NaN);
+
+            if (isNaN(amount) || amount < 50 || amount > userBalance) {
+                if (amountWrapper) {
+                    amountWrapper.classList.add('border-rose-500', 'bg-rose-50');
+                }
+                if (amountError) {
+                    amountError.innerText = 'Minimum withdrawal is ₹50';
+                    amountError.classList.remove('hidden');
+                }
+                if (amountHint) {
+                    amountHint.classList.add('hidden');
+                }
+                return;
+            }
+
+            userBalance -= amount;
+            document.getElementById('walletBalanceText').innerText = `₹${userBalance.toFixed(2)}`;
+
+            pendingWithdrawalInfo = {
+                id: 'TXN_' + Date.now(),
+                category: 'withdrawal',
+                type: 'withdrawal',
+                badge: badgeLabel,
+                title: `₹${amount.toFixed(2)} Withdrawal`,
+                subtitle: subtitleText,
+                status: 'Pending',
+                date: 'Just now'
+            };
+
+            document.getElementById('successModalAmountText').innerText = `₹${amount.toFixed(2)}`;
+            closeWithdrawModal();
+            document.getElementById('successWithdrawModal').classList.remove('hidden');
+        }
+
+        function openSupport() {
+            // Support action
+        }
+
+        function openRaiseTicket() {
+            // Raise ticket action
+        }
+
+        function openTermsModal() {
+            document.getElementById('termsScreen').classList.remove('hidden');
+        }
+
+        function closeTermsModal() {
+            document.getElementById('termsScreen').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
