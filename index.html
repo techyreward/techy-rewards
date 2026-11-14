@@ -1,10 +1,10 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
-<head><script src="https://telegram.org/js/telegram-web-app.js"></script>
-  
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Techy Rewards - Telegram Mini App</title>
+    <title>Techy Earning - Telegram Mini App</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -28,8 +28,14 @@
     </script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Telegram WebApp SDK -->
+    <!-- Official Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+        }
+    </script>
     <!-- Google Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -163,11 +169,11 @@
             <div class="grid grid-cols-2 gap-3">
                 <div class="bg-white border border-slate-200/80 rounded-2xl p-4 text-center shadow-sm">
                     <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Total Invited</span>
-                    <span id="statTotalInvited" class="text-xl font-black text-slate-900 mt-0.5 block">3</span>
+                    <span id="statTotalInvited" class="text-xl font-black text-slate-900 mt-0.5 block">0</span>
                 </div>
                 <div class="bg-emerald-50/90 border border-emerald-200/80 rounded-2xl p-4 text-center shadow-sm">
                     <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">50% Commission</span>
-                    <span id="statTotalCommission" class="text-xl font-black text-emerald-700 mt-0.5 block">₹215.00</span>
+                    <span id="statTotalCommission" class="text-xl font-black text-emerald-700 mt-0.5 block">₹0.00</span>
                 </div>
             </div>
 
@@ -319,13 +325,14 @@
                     <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center font-black text-sm shadow-sm">
                         <i class="fa-solid fa-bolt text-xs"></i>
                     </div>
+                    <!-- Edit "Techy Rewards" below to your custom heading -->
                     <span class="font-black text-slate-900 text-base tracking-tight">Techy Rewards</span>
                 </div>
                 <div onclick="switchTab('wallet')" class="flex items-center space-x-2 bg-white border border-slate-200/90 rounded-full px-3.5 py-1.5 shadow-sm cursor-pointer hover:border-emerald-500 transition">
                     <div class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-black">
                         <i class="fa-solid fa-bolt text-xs"></i>
                     </div>
-                    <span id="homeWalletBalanceText" class="font-black text-xs text-slate-900">₹55.00</span>
+                    <span id="homeWalletBalanceText" class="font-black text-xs text-slate-900">₹0.00</span>
                 </div>
             </div>
 
@@ -421,11 +428,61 @@
                 </div>
                 <div class="flex items-center space-x-2 shrink-0">
                     <span id="totalReferralsBadge" class="bg-emerald-50 text-emerald-700 border border-emerald-200 font-black text-[11px] px-2.5 py-1 rounded-full">
-                        3 Friends
+                        0 Friends
                     </span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-xs"></i>
                 </div>
             </button>
+
+            <!-- How It Works 3-Step Visual Card to Fill Space -->
+            <div class="bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/60 border border-emerald-200/80 rounded-[2rem] p-5 shadow-sm transition-all">
+                <div onclick="toggleHowItWorksShutter()" class="flex items-center justify-between cursor-pointer select-none">
+                    <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center">
+                        <i class="fa-solid fa-wand-magic-sparkles text-emerald-600 mr-2"></i> How It Works
+                    </h4>
+                    <button type="button" class="inline-flex items-center space-x-1.5 text-[11px] font-black text-emerald-700 bg-emerald-100/90 hover:bg-emerald-200/80 px-3 py-1 rounded-full transition">
+                        <span id="howItWorksToggleText">See All</span>
+                        <i id="howItWorksChevron" class="fa-solid fa-chevron-down text-[10px] transition-transform duration-300"></i>
+                    </button>
+                </div>
+
+                <!-- Smooth Accordion Shutter -->
+                <div id="howItWorksShutter" class="grid grid-rows-[0fr] transition-all duration-300 ease-in-out">
+                    <div class="overflow-hidden">
+                        <div class="space-y-3 pt-4">
+                            <div class="flex items-center space-x-3 bg-white p-3 rounded-2xl border border-slate-200/70 shadow-sm">
+                                <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 font-black text-xs flex items-center justify-center shrink-0">
+                                    1
+                                </div>
+                                <div>
+                                    <h5 class="font-black text-slate-900 text-xs">Share Your Invite Link</h5>
+                                    <p class="text-[11px] text-slate-500 font-medium">Send your unique link to friends on Telegram</p>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center space-x-3 bg-white p-3 rounded-2xl border border-slate-200/70 shadow-sm">
+                                <div class="w-9 h-9 rounded-xl bg-teal-100 text-teal-700 font-black text-xs flex items-center justify-center shrink-0">
+                                    2
+                                </div>
+                                <div>
+                                    <h5 class="font-black text-slate-900 text-xs">Friend Completes Tasks</h5>
+                                    <p class="text-[11px] text-slate-500 font-medium">They finish 3 Simple Tasks or 1 Prime Offer</p>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center space-x-3 bg-white p-3 rounded-2xl border border-slate-200/70 shadow-sm">
+                                <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 font-black text-xs flex items-center justify-center shrink-0">
+                                    3
+                                </div>
+                                <div>
+                                    <h5 class="font-black text-slate-900 text-xs">Earn 50% Instant Bonus</h5>
+                                    <p class="text-[11px] text-slate-500 font-medium">Commission gets credited straight to your wallet</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- TAB 3: WALLET & WITHDRAWAL -->
@@ -433,7 +490,7 @@
             <div class="bg-gradient-to-br from-emerald-50/90 via-white to-teal-50/70 border border-emerald-200/70 p-6 rounded-[2rem] space-y-4 shadow-sm">
                 <div class="space-y-1">
                     <span class="text-xs font-bold text-slate-500 uppercase tracking-widest block">AVAILABLE BALANCE</span>
-                    <h2 id="walletBalanceText" class="text-4xl font-black text-slate-900 tracking-tight">₹55.00</h2>
+                    <h2 id="walletBalanceText" class="text-4xl font-black text-slate-900 tracking-tight">₹0.00</h2>
                     <p class="text-xs text-slate-500 font-medium pt-0.5">Withdrawable to UPI & Gift Cards</p>
                 </div>
 
@@ -472,7 +529,7 @@
                         T
                     </div>
                     <div>
-                        <h3 id="profileUsernameText" class="font-black text-slate-900 text-base">TechyEarners11</h3>
+                        <h3 id="profileUsernameText" class="font-black text-slate-900 text-base">TechyUser11</h3>
                         <p class="text-xs text-slate-500">Member since Nov 2026</p>
                     </div>
                 </div>
@@ -480,7 +537,7 @@
                 <div class="grid grid-cols-2 gap-3 pt-2">
                     <div class="bg-emerald-50/70 p-3.5 rounded-2xl text-center border border-emerald-100">
                         <span class="text-[10px] text-emerald-600 font-black uppercase tracking-wider block">Total Earned</span>
-                        <span class="text-lg font-black text-slate-900">₹55.00</span>
+                        <span class="text-lg font-black text-slate-900">₹0.00</span>
                     </div>
                     <div class="bg-indigo-50/70 p-3.5 rounded-2xl text-center border border-indigo-100">
                         <span class="text-[10px] text-indigo-600 font-black uppercase tracking-wider block">Withdrawn</span>
@@ -489,8 +546,24 @@
                 </div>
             </div>
 
+            <!-- Account Activity & Verification Highlights Card -->
+            <div class="bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/70 border border-emerald-200/80 rounded-3xl p-4 shadow-sm flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-base shrink-0">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-black text-slate-900 text-xs">Account Verified</h4>
+                        <p class="text-[11px] text-slate-500 font-medium">Instant UPI & Gift Card payouts enabled</p>
+                    </div>
+                </div>
+                <span class="bg-emerald-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0">
+                    Active
+                </span>
+            </div>
+
             <div class="glass-card rounded-3xl divide-y divide-slate-100 shadow-sm overflow-hidden">
-                <a href="https://t.me/your_telegram_channel" target="_blank" class="p-4 flex items-center justify-between hover:bg-slate-50 transition">
+                <a href="https://t.me/techyrewards" target="_blank" class="p-4 flex items-center justify-between hover:bg-slate-50 transition">
                     <div class="flex items-center space-x-3.5">
                         <div class="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">
                             <i class="fa-brands fa-telegram"></i>
@@ -503,7 +576,7 @@
                     <i class="fa-solid fa-angle-right text-slate-400 text-xs"></i>
                 </a>
 
-                <button onclick="openSupport()" class="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition text-left">
+                <a href="http://t.me/techyrewardsbot" target="_blank" class="p-4 flex items-center justify-between hover:bg-slate-50 transition">
                     <div class="flex items-center space-x-3.5">
                         <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-lg">
                             <i class="fa-solid fa-headset"></i>
@@ -514,7 +587,7 @@
                         </div>
                     </div>
                     <i class="fa-solid fa-angle-right text-slate-400 text-xs"></i>
-                </button>
+                </a>
 
                 <button onclick="openRaiseTicket()" class="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition text-left">
                     <div class="flex items-center space-x-3.5">
@@ -542,6 +615,15 @@
                     <i class="fa-solid fa-angle-right text-slate-400 text-xs"></i>
                 </button>
             </div>
+
+            <!-- App Version & Security Footer Card -->
+            <div class="bg-white/80 border border-slate-200/80 rounded-3xl p-4 text-center space-y-1 shadow-sm">
+                <div class="flex items-center justify-center space-x-1.5 text-emerald-700 font-black text-xs">
+                    <i class="fa-solid fa-lock text-[11px]"></i>
+                    <span>100% Safe & Encrypted Mini App</span>
+                </div>
+                <p class="text-[10px] text-slate-400 font-semibold">Techy Rewards • Version 2.4.0</p>
+            </div>
         </section>
 
     </main>
@@ -557,10 +639,18 @@
                 <div class="w-9"></div>
             </div>
 
+            <!-- Important Agreement Header Banner -->
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex items-start space-x-2.5 shadow-sm">
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 text-sm mt-0.5 shrink-0"></i>
+                <p class="text-xs font-black text-amber-950 leading-snug">
+                    Important Notice: If you do not agree with these Terms &amp; Conditions, please do not use our app.
+                </p>
+            </div>
+
             <div class="bg-white border border-slate-200/80 rounded-3xl p-5 space-y-4 shadow-sm text-xs text-slate-700 leading-relaxed">
                 <div class="space-y-1">
                     <h3 class="font-black text-slate-900 text-sm">1. Introduction & Acceptance</h3>
-                    <p>Welcome to Techy Rewards. By accessing or using our Telegram Mini App, you agree to abide by these Terms & Conditions. If you do not agree with any clause, please refrain from using our services.</p>
+                    <p>Welcome to Techy Reward. By accessing or using our Telegram Mini App, you agree to abide by these Terms & Conditions. If you do not agree with any clause, please refrain from using our services.</p>
                 </div>
 
                 <div class="space-y-1">
@@ -587,6 +677,72 @@
                     <h3 class="font-black text-slate-900 text-sm">6. Compliance & Usage Laws</h3>
                     <p>Users must meet the required age eligibility (e.g., 18+ for certain financial or KYC offers, and 21+ where specified) and comply with all applicable local laws. Any misuse, automation scripts, or bot activities will lead to permanent bans.</p>
                 </div>
+
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-sm">7. No Money Guarantee</h3>
+                    <p><strong>We do not guarantee any money.</strong> All rewards, cashback, and referral bonuses are strictly promotional incentives subject to advertiser verification, availability, and compliance with our platform rules.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FULL PAGE RAISE TICKET SCREEN -->
+    <div id="raiseTicketScreen" class="fixed inset-0 bg-[#f8fafc] z-50 hidden overflow-y-auto p-4 pb-10">
+        <div class="max-w-md mx-auto w-full space-y-5">
+            <!-- Top Back Bar -->
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                <button onclick="closeRaiseTicket()" class="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center hover:bg-slate-100 transition shadow-sm">
+                    <i class="fa-solid fa-chevron-left text-sm"></i>
+                </button>
+                <span class="text-xs font-black tracking-widest text-emerald-600 uppercase">Raise Ticket</span>
+                <div class="w-9"></div>
+            </div>
+
+            <!-- Ticket Submission Card -->
+            <div class="bg-white border border-slate-200/80 rounded-3xl p-5 space-y-4 shadow-sm">
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-base">Submit Support Ticket</h3>
+                    <p class="text-xs text-slate-500">Select the offer you are facing an issue with and upload your screenshot proof below.</p>
+                </div>
+
+                <!-- Offer Name Dropdown -->
+                <div class="space-y-1.5">
+                    <label class="text-[11px] font-black text-slate-600 uppercase tracking-wider block">Select Offer Name <span class="text-rose-500">*</span></label>
+                    <select id="ticketOfferSelect" class="w-full bg-white border border-slate-300 rounded-2xl px-4 py-3.5 text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 transition">
+                        <!-- Dynamically populated with offers -->
+                    </select>
+                </div>
+
+                <!-- Screenshot Proof Upload Box -->
+                <div class="space-y-1.5">
+                    <label class="text-[11px] font-black text-slate-600 uppercase tracking-wider block">Upload Screenshot Proof <span class="text-rose-500">*</span></label>
+                    <label for="ticketProofInput" class="flex flex-col items-center justify-center w-full border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50 hover:bg-emerald-50/40 rounded-2xl p-6 cursor-pointer transition text-center space-y-2">
+                        <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                        </div>
+                        <span id="ticketProofFileName" class="text-xs font-bold text-slate-700">Tap to upload screenshot proof</span>
+                        <span class="text-[10px] text-slate-400 font-medium">PNG, JPG or JPEG (Max 5MB)</span>
+                        <input id="ticketProofInput" type="file" accept="image/*" onchange="handleTicketFileChange(event)" class="hidden">
+                    </label>
+                    <p id="ticketProofErrorMsg" class="text-[11px] text-rose-500 font-bold hidden">Please upload a screenshot proof.</p>
+                </div>
+
+                <!-- Description Box -->
+                <div class="space-y-1.5">
+                    <label class="text-[11px] font-black text-slate-600 uppercase tracking-wider block">Description <span class="text-rose-500">*</span></label>
+                    <textarea id="ticketDescriptionInput" rows="3" placeholder="Briefly describe your issue or missing reward details..." class="w-full bg-white border border-slate-300 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 transition resize-none"></textarea>
+                    <p id="ticketDescErrorMsg" class="text-[11px] text-rose-500 font-bold hidden">Please enter a brief description of your issue.</p>
+                </div>
+
+                <!-- Success Message -->
+                <div id="ticketSuccessBanner" class="hidden bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center space-x-2.5 text-emerald-800">
+                    <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i>
+                    <span class="text-xs font-bold">Ticket submitted successfully! Our team will review it within 24 hours.</span>
+                </div>
+
+                <button onclick="submitSupportTicket()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 active:scale-[0.99] text-white font-black py-3.5 rounded-2xl text-xs transition shadow-lg shadow-emerald-500/20">
+                    Submit Ticket
+                </button>
             </div>
         </div>
     </div>
@@ -623,7 +779,7 @@
         }
 
         // State Data
-        let userBalance = 55.00;
+        let userBalance = 0.00;
         let currentMyOffersTab = 'ongoing';
         let currentOfferCategoryFilter = 'kyc';
         let currentWalletTab = 'earnings';
@@ -634,211 +790,14 @@
         const BOT_USERNAME = 'TechyEarningBot';
         let pendingWithdrawalInfo = null;
 
-        // Unified Transactions Ledger (Earnings vs Withdrawals)
-        let transactionsData = [
-            {
-                id: 'TXN_105',
-                category: 'earnings',
-                type: 'referral',
-                badge: 'Referral',
-                title: '₹100.00 Cashback',
-                subtitle: '50% Commission — Rohan Sharma (Angel One)',
-                status: 'Approved',
-                date: '12 Nov, 04:15 PM'
-            },
-            {
-                id: 'TXN_104',
-                category: 'earnings',
-                type: 'completed',
-                badge: 'Task',
-                title: '₹10.00 Cashback',
-                subtitle: 'Task Reward — Surveoo Offer',
-                status: 'Completed',
-                date: '11 Nov, 07:30 PM'
-            },
-            {
-                id: 'TXN_fail_1',
-                category: 'earnings',
-                type: 'failed',
-                badge: 'Failed Task',
-                title: '₹200.00 Task Attempt',
-                subtitle: 'Task Rejected — Upstox (KYC Incomplete)',
-                status: 'Failed',
-                date: '11 Nov, 05:00 PM'
-            },
-            {
-                id: 'TXN_103',
-                category: 'withdrawal',
-                type: 'withdrawal',
-                badge: 'UPI',
-                title: '₹150.00 Withdrawal',
-                subtitle: 'UPI Payout — user@upi',
-                status: 'Pending',
-                date: '11 Nov, 02:10 PM'
-            },
-            {
-                id: 'TXN_102',
-                category: 'earnings',
-                type: 'referral',
-                badge: 'Referral',
-                title: '₹100.00 Cashback',
-                subtitle: '50% Commission — Priya Verma (Upstox)',
-                status: 'Approved',
-                date: '10 Nov, 06:45 PM'
-            },
-            {
-                id: 'TXN_101',
-                category: 'earnings',
-                type: 'completed',
-                badge: 'Task',
-                title: '₹10.00 Cashback',
-                subtitle: 'Task Reward — King Opinion Survey',
-                status: 'Completed',
-                date: '10 Nov, 11:20 AM'
-            }
-        ];
+        // Unified Transactions Ledger (Empty for New User)
+        let transactionsData = [];
 
-        // Sample Referrals Data
-        let referralsData = [
-            {
-                id: 101,
-                name: 'Rohan Sharma',
-                username: '@rohan_s',
-                joinedDate: '10 Nov 2026',
-                completedTasks: [
-                    { title: 'Angel One', tag: 'PRIME', taskReward: 200, commission: 100 },
-                    { title: 'King Opinion', tag: 'NON-KYC', taskReward: 10, commission: 5 }
-                ]
-            },
-            {
-                id: 102,
-                name: 'Priya Verma',
-                username: '@priya_v99',
-                joinedDate: '11 Nov 2026',
-                completedTasks: [
-                    { title: 'Upstox', tag: 'PRIME', taskReward: 200, commission: 100 },
-                    { title: 'Surveoo', tag: 'NON-KYC', taskReward: 10, commission: 5 }
-                ]
-            },
-            {
-                id: 103,
-                name: 'Amit Patel',
-                username: '@amit_p',
-                joinedDate: '12 Nov 2026',
-                completedTasks: [
-                    { title: 'King Opinion', tag: 'NON-KYC', taskReward: 10, commission: 5 }
-                ]
-            }
-        ];
+        // Sample Referrals Data (Empty for New User)
+        let referralsData = [];
 
-        // Tasks Data (category: 'kyc' expires in 12 days | category: 'non-kyc' expires in 8 days)
-        let tasksData = [
-            { 
-                id: 1, 
-                title: 'King Opinion', 
-                category: 'non-kyc',
-                tag: 'NON-KYC', 
-                desc: 'Complete Profile survey', 
-                reward: 10, 
-                icon: 'fa-crown', 
-                color: 'from-purple-500 to-indigo-500', 
-                link: 'https://example.com/offer1',
-                status: 'available',
-                startedAt: null,
-                conditions: [
-                    'Register with your active mobile number.',
-                    'Complete your profile survey completely.',
-                    'Submit registered mobile number & proof screenshot in My Offers.'
-                ]
-            },
-            { 
-                id: 2, 
-                title: 'Surveoo', 
-                category: 'non-kyc',
-                tag: 'NON-KYC', 
-                desc: 'Answer quick 2 min survey', 
-                reward: 10, 
-                icon: 'fa-square-poll-vertical', 
-                color: 'from-cyan-500 to-blue-500', 
-                link: 'https://example.com/offer2',
-                status: 'completed',
-                startedAt: null,
-                conditions: [
-                    'Answer all questions honestly.',
-                    'Reach the final thank-you completion screen.',
-                    'Take a screenshot of completion screen.'
-                ]
-            },
-            { 
-                id: 3, 
-                title: 'Angel One', 
-                category: 'kyc',
-                tag: 'PRIME', 
-                desc: 'Open Free Demat Account', 
-                reward: 200, 
-                icon: 'fa-chart-line', 
-                color: 'from-emerald-400 to-teal-500', 
-                link: 'https://example.com/offer3',
-                status: 'available',
-                startedAt: null,
-                conditions: [
-                    'Open link and complete Aadhaar KYC verification.',
-                    'Account must be activated successfully.',
-                    'Submit Client ID / Mobile Number.'
-                ]
-            },
-            { 
-                id: 4, 
-                title: 'Upstox', 
-                category: 'kyc',
-                tag: 'PRIME', 
-                desc: 'Open Free Demat Account', 
-                reward: 200, 
-                icon: 'fa-arrow-trend-up', 
-                color: 'from-pink-500 to-rose-500', 
-                link: 'https://example.com/offer4',
-                status: 'available',
-                startedAt: null,
-                conditions: [
-                    'Complete signup process via PAN & Aadhaar.',
-                    'Submit registered mobile number in My Offers tab.'
-                ]
-            },
-            { 
-                id: 5, 
-                title: 'Pocket Survey', 
-                category: 'non-kyc',
-                tag: 'NON-KYC', 
-                desc: 'Daily Opinion Poll', 
-                reward: 15, 
-                icon: 'fa-clipboard-check', 
-                color: 'from-amber-500 to-orange-500', 
-                link: 'https://example.com/offer5',
-                status: 'available',
-                startedAt: null,
-                conditions: [
-                    'Complete quick opinion poll.',
-                    'Submit completion screenshot.'
-                ]
-            },
-            { 
-                id: 6, 
-                title: 'Groww Demat', 
-                category: 'kyc',
-                tag: 'PRIME', 
-                desc: 'Instant Demat Activation', 
-                reward: 150, 
-                icon: 'fa-seedling', 
-                color: 'from-teal-500 to-emerald-600', 
-                link: 'https://example.com/offer6',
-                status: 'available',
-                startedAt: null,
-                conditions: [
-                    'Complete Aadhaar eSign KYC.',
-                    'Submit proof.'
-                ]
-            }
-        ];
+        // Tasks Data (Empty - Managed via Admin Panel)
+        let tasksData = [];
 
         // Removed automatic time-based expiration logic. Tasks remain available indefinitely unless manually changed.
         function checkOfferExpirations() {
@@ -1318,6 +1277,26 @@
             document.getElementById('myReferralsScreen').classList.add('hidden');
         }
 
+        let isHowItWorksOpen = false;
+        function toggleHowItWorksShutter() {
+            isHowItWorksOpen = !isHowItWorksOpen;
+            const shutter = document.getElementById('howItWorksShutter');
+            const toggleText = document.getElementById('howItWorksToggleText');
+            const chevron = document.getElementById('howItWorksChevron');
+
+            if (isHowItWorksOpen) {
+                shutter.classList.remove('grid-rows-[0fr]');
+                shutter.classList.add('grid-rows-[1fr]');
+                toggleText.innerText = 'Hide';
+                chevron.classList.add('rotate-180');
+            } else {
+                shutter.classList.remove('grid-rows-[1fr]');
+                shutter.classList.add('grid-rows-[0fr]');
+                toggleText.innerText = 'See All';
+                chevron.classList.remove('rotate-180');
+            }
+        }
+
         function showToast(message) {
             // Disabled popup toast messages
         }
@@ -1522,7 +1501,63 @@
         }
 
         function openRaiseTicket() {
-            // Raise ticket action
+            const selectEl = document.getElementById('ticketOfferSelect');
+            if (selectEl) {
+                selectEl.innerHTML = tasksData.map(task => 
+                    `<option value="${task.title}">${task.title} (+₹${task.reward})</option>`
+                ).join('');
+            }
+            document.getElementById('ticketProofInput').value = '';
+            document.getElementById('ticketProofFileName').innerText = 'Tap to upload screenshot proof';
+            document.getElementById('ticketProofErrorMsg').classList.add('hidden');
+            document.getElementById('ticketDescriptionInput').value = '';
+            document.getElementById('ticketDescErrorMsg').classList.add('hidden');
+            document.getElementById('ticketSuccessBanner').classList.add('hidden');
+            document.getElementById('raiseTicketScreen').classList.remove('hidden');
+        }
+
+        function handleTicketFileChange(event) {
+            const file = event.target.files[0];
+            const labelEl = document.getElementById('ticketProofFileName');
+            if (file && labelEl) {
+                labelEl.innerText = `Selected: ${file.name}`;
+                document.getElementById('ticketProofErrorMsg').classList.add('hidden');
+            }
+        }
+
+        function closeRaiseTicket() {
+            document.getElementById('raiseTicketScreen').classList.add('hidden');
+        }
+
+        function submitSupportTicket() {
+            const proofInput = document.getElementById('ticketProofInput');
+            const proofErrorMsg = document.getElementById('ticketProofErrorMsg');
+            const descInput = document.getElementById('ticketDescriptionInput');
+            const descErrorMsg = document.getElementById('ticketDescErrorMsg');
+            const successBanner = document.getElementById('ticketSuccessBanner');
+
+            let isValid = true;
+
+            if (!proofInput.files || proofInput.files.length === 0) {
+                proofErrorMsg.classList.remove('hidden');
+                isValid = false;
+            } else {
+                proofErrorMsg.classList.add('hidden');
+            }
+
+            if (!descInput.value.trim()) {
+                descErrorMsg.classList.remove('hidden');
+                isValid = false;
+            } else {
+                descErrorMsg.classList.add('hidden');
+            }
+
+            if (!isValid) return;
+
+            successBanner.classList.remove('hidden');
+            proofInput.value = '';
+            descInput.value = '';
+            document.getElementById('ticketProofFileName').innerText = 'Tap to upload screenshot proof';
         }
 
         function openTermsModal() {
@@ -1535,3 +1570,4 @@
     </script>
 </body>
 </html>
+```
