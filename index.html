@@ -35,6 +35,9 @@
             window.Telegram.WebApp.expand();
         }
     </script>
+    <!-- Firebase v10 Compat SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <!-- Google Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -85,7 +88,7 @@
                         <span id="detailTaskReward" class="font-black text-sm tracking-tight">0.00</span>
                     </div>
                 </div>
-                <div id="detailTaskIcon" class="w-20 h-20 rounded-2xl bg-white text-emerald-600 flex items-center justify-center text-3xl shadow-md border border-emerald-100 shrink-0">
+                <div id="detailTaskIcon" class="w-20 h-20 rounded-2xl bg-white text-emerald-600 flex items-center justify-center text-3xl shadow-md border border-emerald-100 shrink-0 overflow-hidden">
                     <i class="fa-solid fa-gift"></i>
                 </div>
             </div>
@@ -94,15 +97,15 @@
             <div class="bg-white border-2 border-slate-200/90 rounded-3xl p-5 space-y-3 shadow-md flex-1">
                 <div class="flex items-center justify-between pb-2 border-b border-slate-100">
                     <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center">
-                        <i class="fa-solid fa-clipboard-list mr-2 text-emerald-600 text-sm"></i> Instructions & Steps
+                        <i class="fa-solid fa-clipboard-list mr-2 text-emerald-600 text-sm"></i> Instructions &amp; Steps
                     </h4>
-                    <span class="text-[10px] font-black bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">Pending</span>
+                    <span id="detailTaskStatusBadge" class="text-[10px] font-black bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">Available</span>
                 </div>
                 <div id="detailTaskConditions" class="space-y-2.5 text-xs text-slate-700">
                     <!-- Injected dynamically -->
                 </div>
 
-                <!-- Pro Tips Section to Fill Space -->
+                <!-- Pro Tips Section -->
                 <div class="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3.5 space-y-1.5 mt-3">
                     <div class="flex items-center space-x-2 text-emerald-900 font-black text-xs">
                         <i class="fa-solid fa-lightbulb text-amber-500"></i>
@@ -171,13 +174,13 @@
                     <span id="statTotalInvited" class="text-xl font-black text-slate-900 mt-0.5 block">0</span>
                 </div>
                 <div class="bg-emerald-50/90 border border-emerald-200/80 rounded-2xl p-4 text-center shadow-sm">
-                    <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">50% Commission</span>
+                    <span id="refStatPctLabel" class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">50% Commission</span>
                     <span id="statTotalCommission" class="text-xl font-black text-emerald-700 mt-0.5 block">₹0.00</span>
                 </div>
             </div>
 
             <div class="space-y-3">
-                <h3 class="font-black text-slate-900 text-sm tracking-tight px-1">Invited Friends & Earnings</h3>
+                <h3 class="font-black text-slate-900 text-sm tracking-tight px-1">Invited Friends &amp; Earnings</h3>
                 <div id="referralsListContainer" class="space-y-3"></div>
             </div>
         </div>
@@ -195,7 +198,7 @@
                 </div>
             </div>
 
-            <!-- Filter Pills in Exact Required Order: All, Completed, Failed, Referral -->
+            <!-- Filter Pills: All, Completed, Failed, Referral -->
             <div class="flex items-center space-x-2 overflow-x-auto hide-scrollbar pb-1 pt-1">
                 <button onclick="filterEarningHistory('all')" id="histFilter-all" class="px-4 py-2 rounded-full text-xs font-black bg-emerald-600 text-white shadow-sm shrink-0 transition">
                     All
@@ -284,7 +287,7 @@
             </div>
 
             <div class="space-y-2 pt-1">
-                <button onclick="submitWithdrawal()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 active:scale-[0.99] text-white font-black py-4 rounded-2xl text-sm transition shadow-lg shadow-emerald-500/25">
+                <button id="submitWithdrawBtn" onclick="submitWithdrawal()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 active:scale-[0.99] text-white font-black py-4 rounded-2xl text-sm transition shadow-lg shadow-emerald-500/25">
                     Submit
                 </button>
                 <p class="text-[11px] text-center text-slate-400 font-medium">Processed within 24–48 hours</p>
@@ -294,7 +297,7 @@
 
     <!-- CONGRATULATIONS WITHDRAWAL SUCCESS MODAL -->
     <div id="successWithdrawModal" class="fixed inset-0 bg-slate-900/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
-        <div class="bg-white w-full max-w-sm rounded-[2.5rem] p-6 text-center space-y-5 shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div class="bg-white w-full max-w-sm rounded-[2.5rem] p-6 text-center space-y-5 shadow-2xl">
             <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl mx-auto flex items-center justify-center text-3xl shadow-inner border border-emerald-200">
                 <i class="fa-solid fa-circle-check"></i>
             </div>
@@ -303,7 +306,7 @@
                 <p class="text-xs text-slate-500 font-medium">Your withdrawal request has been successfully submitted.</p>
             </div>
             <div class="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/80 rounded-2xl p-4 space-y-1">
-                <span class="text-[10px] font-black text-emerald-700 uppercase tracking-wider block">Withdrawn Amount & Timing</span>
+                <span class="text-[10px] font-black text-emerald-700 uppercase tracking-wider block">Withdrawn Amount &amp; Timing</span>
                 <span id="successModalAmountText" class="text-3xl font-black text-emerald-900 block">₹0.00</span>
                 <span class="text-[11px] text-slate-700 font-bold block pt-1">Will be credited within 24–48 hours</span>
             </div>
@@ -324,7 +327,6 @@
                     <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center font-black text-sm shadow-sm">
                         <i class="fa-solid fa-bolt text-xs"></i>
                     </div>
-                    <!-- Edit "Techy Rewards" below to your custom heading -->
                     <span class="font-black text-slate-900 text-base tracking-tight">Techy Rewards</span>
                 </div>
                 <div onclick="switchTab('wallet')" class="flex items-center space-x-2 bg-white border border-slate-200/90 rounded-full px-3.5 py-1.5 shadow-sm cursor-pointer hover:border-emerald-500 transition">
@@ -340,7 +342,7 @@
                 <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
                 <div class="relative z-10 space-y-1.5">
                     <span class="bg-white/20 backdrop-blur-md text-amber-300 font-black text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider">⚡ Daily Rewards</span>
-                    <h2 class="text-xl font-black leading-tight tracking-wide">Complete Offers & Earn Cash</h2>
+                    <h2 class="text-xl font-black leading-tight tracking-wide">Complete Offers &amp; Earn Cash</h2>
                 </div>
             </div>
 
@@ -350,6 +352,7 @@
                     <h3 class="font-black text-slate-900 text-xs uppercase tracking-wider">Active Offers</h3>
                     <button onclick="openMyOffersScreen()" class="inline-flex items-center space-x-1.5 bg-white hover:border-emerald-500/50 active:scale-[0.98] border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm transition">
                         <span class="font-black text-slate-800 text-[11px]">My Offers</span>
+                        <span id="myOffersCountBadge" class="hidden bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">0</span>
                         <i class="fa-solid fa-arrow-right text-emerald-600 text-[10px]"></i>
                     </button>
                 </div>
@@ -380,18 +383,18 @@
                     </div>
                     <div>
                         <span class="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full uppercase tracking-wider">Referral Program</span>
-                        <h2 class="text-xl font-black text-slate-900 tracking-tight mt-1">Refer & Earn 50%</h2>
+                        <h2 id="inviteHeadlineText" class="text-xl font-black text-slate-900 tracking-tight mt-1">Refer &amp; Earn 50%</h2>
                     </div>
                 </div>
 
                 <div class="bg-emerald-50/60 border border-emerald-200/80 rounded-2xl p-4 space-y-2">
                     <h4 class="text-xs font-black text-emerald-900 uppercase tracking-wider flex items-center">
-                        <i class="fa-solid fa-circle-check mr-2 text-emerald-600"></i> Commission & Eligibility
+                        <i class="fa-solid fa-circle-check mr-2 text-emerald-600"></i> Commission &amp; Eligibility
                     </h4>
                     <ul class="space-y-1.5 text-xs text-slate-700 font-medium pl-1">
                         <li class="flex items-start">
                             <span class="text-emerald-600 font-bold mr-2">•</span>
-                            <span>Get <strong class="text-slate-900">50% commission</strong> on your friend's first 3 tasks.</span>
+                            <span>Get <strong id="inviteRulePctText" class="text-slate-900">50% commission</strong> on your friend's first 3 tasks.</span>
                         </li>
                         <li class="flex items-start">
                             <span class="text-emerald-600 font-bold mr-2">•</span>
@@ -402,7 +405,7 @@
 
                 <div class="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 pl-3.5 flex items-center justify-between gap-2">
                     <span id="refLinkText" class="font-mono font-bold text-xs text-slate-700 truncate select-all">https://t.me/TechyEarningBot?start=ref_98765</span>
-                    <button onclick="copyRefLink()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-black text-xs shrink-0 shadow transition">
+                    <button id="copyRefBtn" onclick="copyRefLink()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-black text-xs shrink-0 shadow transition">
                         Copy
                     </button>
                 </div>
@@ -422,7 +425,7 @@
                     </div>
                     <div>
                         <h3 class="font-black text-slate-900 text-sm tracking-tight">My Referrals</h3>
-                        <p class="text-[11px] text-slate-500 font-medium">Track 3-task & Prime task 50% earnings</p>
+                        <p class="text-[11px] text-slate-500 font-medium">Track 3-task &amp; Prime task 50% earnings</p>
                     </div>
                 </div>
                 <div class="flex items-center space-x-2 shrink-0">
@@ -433,7 +436,7 @@
                 </div>
             </button>
 
-            <!-- How It Works 3-Step Visual Card to Fill Space -->
+            <!-- How It Works 3-Step Visual Card -->
             <div class="bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/60 border border-emerald-200/80 rounded-[2rem] p-5 shadow-sm transition-all">
                 <div onclick="toggleHowItWorksShutter()" class="flex items-center justify-between cursor-pointer select-none">
                     <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center">
@@ -490,7 +493,7 @@
                 <div class="space-y-1">
                     <span class="text-xs font-bold text-slate-500 uppercase tracking-widest block">AVAILABLE BALANCE</span>
                     <h2 id="walletBalanceText" class="text-4xl font-black text-slate-900 tracking-tight">₹0.00</h2>
-                    <p class="text-xs text-slate-500 font-medium pt-0.5">Withdrawable to UPI & Gift Cards</p>
+                    <p class="text-xs text-slate-500 font-medium pt-0.5">Withdrawable to UPI &amp; Gift Cards</p>
                 </div>
 
                 <button onclick="openWithdrawModal()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 active:scale-[0.99] text-white font-black py-4 rounded-2xl text-sm transition shadow-lg shadow-emerald-500/20">
@@ -529,18 +532,18 @@
                     </div>
                     <div>
                         <h3 id="profileUsernameText" class="font-black text-slate-900 text-base">TechyUser11</h3>
-                        <p class="text-xs text-slate-500">Member since Nov 2026</p>
+                        <p id="profileUserIdText" class="text-xs text-slate-500">Member since Nov 2026</p>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3 pt-2">
                     <div class="bg-emerald-50/70 p-3.5 rounded-2xl text-center border border-emerald-100">
                         <span class="text-[10px] text-emerald-600 font-black uppercase tracking-wider block">Total Earned</span>
-                        <span class="text-lg font-black text-slate-900">₹0.00</span>
+                        <span id="profileTotalEarnedText" class="text-lg font-black text-slate-900">₹0.00</span>
                     </div>
                     <div class="bg-indigo-50/70 p-3.5 rounded-2xl text-center border border-indigo-100">
                         <span class="text-[10px] text-indigo-600 font-black uppercase tracking-wider block">Withdrawn</span>
-                        <span class="text-lg font-black text-slate-900">₹0.00</span>
+                        <span id="profileTotalWithdrawnText" class="text-lg font-black text-slate-900">₹0.00</span>
                     </div>
                 </div>
             </div>
@@ -553,7 +556,7 @@
                     </div>
                     <div>
                         <h4 class="font-black text-slate-900 text-xs">Account Verified</h4>
-                        <p class="text-[11px] text-slate-500 font-medium">Instant UPI & Gift Card payouts enabled</p>
+                        <p class="text-[11px] text-slate-500 font-medium">Instant UPI &amp; Gift Card payouts enabled</p>
                     </div>
                 </div>
                 <span class="bg-emerald-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0">
@@ -562,20 +565,20 @@
             </div>
 
             <div class="glass-card rounded-3xl divide-y divide-slate-100 shadow-sm overflow-hidden">
-                <a href="https://t.me/techyrewards" target="_blank" class="p-4 flex items-center justify-between hover:bg-slate-50 transition">
+                <a id="profileChannelLink" href="https://t.me/techyrewards" target="_blank" class="p-4 flex items-center justify-between hover:bg-slate-50 transition">
                     <div class="flex items-center space-x-3.5">
                         <div class="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">
                             <i class="fa-brands fa-telegram"></i>
                         </div>
                         <div>
                             <h4 class="font-bold text-slate-900 text-xs">Join Telegram Channel</h4>
-                            <p class="text-[11px] text-slate-500">Get instant updates & new offers</p>
+                            <p class="text-[11px] text-slate-500">Get instant updates &amp; new offers</p>
                         </div>
                     </div>
                     <i class="fa-solid fa-angle-right text-slate-400 text-xs"></i>
                 </a>
 
-                <a href="http://t.me/techyrewardsbot" target="_blank" class="p-4 flex items-center justify-between hover:bg-slate-50 transition">
+                <a id="profileSupportLink" href="http://t.me/techyrewardsbot" target="_blank" class="p-4 flex items-center justify-between hover:bg-slate-50 transition">
                     <div class="flex items-center space-x-3.5">
                         <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-lg">
                             <i class="fa-solid fa-headset"></i>
@@ -607,8 +610,8 @@
                             <i class="fa-solid fa-file-contract"></i>
                         </div>
                         <div>
-                            <h4 class="font-bold text-slate-900 text-xs">Terms & Conditions</h4>
-                            <p class="text-[11px] text-slate-500">Read policies, wallet & task rules</p>
+                            <h4 class="font-bold text-slate-900 text-xs">Terms &amp; Conditions</h4>
+                            <p class="text-[11px] text-slate-500">Read policies, wallet &amp; task rules</p>
                         </div>
                     </div>
                     <i class="fa-solid fa-angle-right text-slate-400 text-xs"></i>
@@ -619,7 +622,7 @@
             <div class="bg-white/80 border border-slate-200/80 rounded-3xl p-4 text-center space-y-1 shadow-sm">
                 <div class="flex items-center justify-center space-x-1.5 text-emerald-700 font-black text-xs">
                     <i class="fa-solid fa-lock text-[11px]"></i>
-                    <span>100% Safe & Encrypted Mini App</span>
+                    <span>100% Safe &amp; Encrypted Mini App</span>
                 </div>
                 <p class="text-[10px] text-slate-400 font-semibold">Techy Rewards • Version 2.4.0</p>
             </div>
@@ -634,7 +637,7 @@
                 <button onclick="closeTermsModal()" class="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center hover:bg-slate-100 transition shadow-sm">
                     <i class="fa-solid fa-chevron-left text-sm"></i>
                 </button>
-                <span class="text-xs font-black tracking-widest text-emerald-600 uppercase">Terms & Conditions</span>
+                <span class="text-xs font-black tracking-widest text-emerald-600 uppercase">Terms &amp; Conditions</span>
                 <div class="w-9"></div>
             </div>
 
@@ -648,32 +651,32 @@
 
             <div class="bg-white border border-slate-200/80 rounded-3xl p-5 space-y-4 shadow-sm text-xs text-slate-700 leading-relaxed">
                 <div class="space-y-1">
-                    <h3 class="font-black text-slate-900 text-sm">1. Introduction & Acceptance</h3>
-                    <p>Welcome to Techy Reward. By accessing or using our Telegram Mini App, you agree to abide by these Terms & Conditions. If you do not agree with any clause, please refrain from using our services.</p>
+                    <h3 class="font-black text-slate-900 text-sm">1. Introduction &amp; Acceptance</h3>
+                    <p>Welcome to Techy Reward. By accessing or using our Telegram Mini App, you agree to abide by these Terms &amp; Conditions. If you do not agree with any clause, please refrain from using our services.</p>
                 </div>
 
                 <div class="space-y-1">
-                    <h3 class="font-black text-slate-900 text-sm">2. Earnings & No Financial Guarantee</h3>
+                    <h3 class="font-black text-slate-900 text-sm">2. Earnings &amp; No Financial Guarantee</h3>
                     <p>We do not guarantee any fixed earnings or monetary returns. Task rewards are dependent on successful verification and compliance by third-party offer partners. Payouts are subject to anti-fraud checks.</p>
                 </div>
 
                 <div class="space-y-1">
-                    <h3 class="font-black text-slate-900 text-sm">3. Task Approval & Wallet Balance</h3>
+                    <h3 class="font-black text-slate-900 text-sm">3. Task Approval &amp; Wallet Balance</h3>
                     <p>Once a task is successfully approved by our system or advertisers, the cashback/reward is credited to your in-app wallet. <strong>The wallet balance is usable strictly within the app</strong> for withdrawals to eligible UPI IDs or Gift Cards.</p>
                 </div>
 
                 <div class="space-y-1">
-                    <h3 class="font-black text-slate-900 text-sm">4. Withdrawals & Payout Processing</h3>
+                    <h3 class="font-black text-slate-900 text-sm">4. Withdrawals &amp; Payout Processing</h3>
                     <p>Withdrawal requests are processed within 24–48 hours. Users must provide accurate UPI IDs or voucher contact details. Techy Reward is not responsible for failed transactions caused by incorrect user-submitted payment details.</p>
                 </div>
 
                 <div class="space-y-1">
-                    <h3 class="font-black text-slate-900 text-sm">5. Referral Program & Commissions</h3>
-                    <p>Our 50% referral commission applies to the <strong>first 3 completed & approved tasks</strong> OR upon completing at least <strong>1 PRIME task</strong> by each genuine friend who joins via your unique referral link. Fraudulent or self-referrals will result in immediate account termination and forfeiture of balance.</p>
+                    <h3 class="font-black text-slate-900 text-sm">5. Referral Program &amp; Commissions</h3>
+                    <p>Our 50% referral commission applies to the <strong>first 3 completed &amp; approved tasks</strong> OR upon completing at least <strong>1 PRIME task</strong> by each genuine friend who joins via your unique referral link. Fraudulent or self-referrals will result in immediate account termination and forfeiture of balance.</p>
                 </div>
 
                 <div class="space-y-1">
-                    <h3 class="font-black text-slate-900 text-sm">6. Compliance & Usage Laws</h3>
+                    <h3 class="font-black text-slate-900 text-sm">6. Compliance &amp; Usage Laws</h3>
                     <p>Users must meet the required age eligibility (e.g., 18+ for certain financial or KYC offers, and 21+ where specified) and comply with all applicable local laws. Any misuse, automation scripts, or bot activities will lead to permanent bans.</p>
                 </div>
 
@@ -739,7 +742,7 @@
                     <span class="text-xs font-bold">Ticket submitted successfully! Our team will review it within 24 hours.</span>
                 </div>
 
-                <button onclick="submitSupportTicket()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 active:scale-[0.99] text-white font-black py-3.5 rounded-2xl text-xs transition shadow-lg shadow-emerald-500/20">
+                <button id="submitTicketBtn" onclick="submitSupportTicket()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 active:scale-[0.99] text-white font-black py-3.5 rounded-2xl text-xs transition shadow-lg shadow-emerald-500/20">
                     Submit Ticket
                 </button>
             </div>
@@ -767,18 +770,74 @@
     </nav>
 
     <script>
-        // Init Telegram WebApp SDK & Extract Real User ID & Name
-        let currentTelegramUser = { id: '987654321', first_name: 'TechyUser11' };
+        // ==================== FIREBASE INITIALIZATION ====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyD59wQuQy8pmbGUdt6swHbzJOhuYXaDp60",
+            authDomain: "techyrewards-62999.firebaseapp.com",
+            projectId: "techyrewards-62999",
+            storageBucket: "techyrewards-62999.firebasestorage.app",
+            messagingSenderId: "430187217619",
+            appId: "1:430187217619:web:9a47a59517027559874a26"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+        const { FieldValue } = firebase.firestore;
+
+        // ==================== TELEGRAM USER & REFERRAL EXTRACTION ====================
+        let currentTelegramUser = null;
+        let startParamRef = null;
+
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
-            if (window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
-                currentTelegramUser = window.Telegram.WebApp.initDataUnsafe.user;
+            const initUnsafe = window.Telegram.WebApp.initDataUnsafe || {};
+            if (initUnsafe.user) {
+                currentTelegramUser = initUnsafe.user;
+            }
+            if (initUnsafe.start_param && String(initUnsafe.start_param).startsWith('ref_')) {
+                startParamRef = String(initUnsafe.start_param).replace('ref_', '');
             }
         }
 
-        // State Data
-        let userBalance = 0.00;
+        // Browser fallback ID if opened outside Telegram
+        if (!currentTelegramUser) {
+            let savedGuestId = localStorage.getItem('techy_guest_uid');
+            if (!savedGuestId) {
+                savedGuestId = 'guest_' + Math.floor(100000 + Math.random() * 900000);
+                localStorage.setItem('techy_guest_uid', savedGuestId);
+            }
+            currentTelegramUser = { id: savedGuestId, first_name: 'TechyUser', username: '' };
+        }
+
+        const currentUserId = String(currentTelegramUser.id);
+        const currentUserName = [currentTelegramUser.first_name, currentTelegramUser.last_name].filter(Boolean).join(' ') || 'TechyUser';
+        const currentUserHandle = currentTelegramUser.username ? `@${currentTelegramUser.username}` : '';
+
+        // ==================== LIVE STATE ====================
+        let appSettings = {
+            minWithdrawal: 50,
+            referralPercent: 50,
+            telegramChannel: 'https://t.me/techyrewards',
+            supportLink: 'https://t.me/techyrewardsbot'
+        };
+
+        let userProfile = {
+            balance: 0,
+            earned: 0,
+            withdrawn: 0,
+            mobile: '',
+            referrer: null,
+            referrerId: null,
+            referralsCount: 0
+        };
+
+        let liveOffers = [];
+        let userTaskStatuses = {};
+        let transactionsData = [];
+        let referralsData = [];
+
         let currentMyOffersTab = 'ongoing';
         let currentOfferCategoryFilter = 'kyc';
         let currentWalletTab = 'earnings';
@@ -788,27 +847,302 @@
         let currentHistoryFilter = 'all';
         const BOT_USERNAME = 'TechyEarningBot';
         let pendingWithdrawalInfo = null;
+        let proofImagesCache = {};
+        let ticketImageBase64 = '';
 
-        // Unified Transactions Ledger (Empty for New User)
-        let transactionsData = [];
-
-        // Sample Referrals Data (Empty for New User)
-        let referralsData = [];
-
-        // Tasks Data (Empty - Managed via Admin Panel)
-        let tasksData = [];
-
-        // Removed automatic time-based expiration logic. Tasks remain available indefinitely unless manually changed.
-        function checkOfferExpirations() {
-            // Disabled auto-expiration
+        // ==================== IMAGE COMPRESSION HELPER ====================
+        function compressImageToBase64(file, maxWidth = 720, quality = 0.72) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let w = img.width;
+                        let h = img.height;
+                        if (w > maxWidth) {
+                            h = Math.round((h * maxWidth) / w);
+                            w = maxWidth;
+                        }
+                        canvas.width = w;
+                        canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, w, h);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
+                    };
+                    img.onerror = reject;
+                    img.src = ev.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
         }
 
-        window.onload = function() {
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function formatNowDate() {
+            const d = new Date();
+            return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) +
+                ', ' +
+                d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+        }
+
+        // ==================== FIRESTORE USER INITIALIZATION & LISTENERS ====================
+        async function ensureUserDocument() {
+            const userRef = db.collection('users').doc(currentUserId);
+            try {
+                const snap = await userRef.get();
+                if (!snap.exists) {
+                    const newUserDoc = {
+                        name: currentUserName,
+                        handle: currentUserHandle,
+                        mobile: '',
+                        balance: 0,
+                        earned: 0,
+                        withdrawn: 0,
+                        referrer: null,
+                        referrerId: null,
+                        referralsCount: 0,
+                        createdAt: FieldValue.serverTimestamp()
+                    };
+
+                    if (startParamRef && startParamRef !== currentUserId) {
+                        const uplinerRef = db.collection('users').doc(startParamRef);
+                        const uplinerSnap = await uplinerRef.get();
+                        if (uplinerSnap.exists) {
+                            newUserDoc.referrerId = startParamRef;
+                            newUserDoc.referrer = uplinerSnap.data().name || startParamRef;
+                            await uplinerRef.update({
+                                referralsCount: FieldValue.increment(1)
+                            });
+                        }
+                    }
+                    await userRef.set(newUserDoc);
+                } else {
+                    await userRef.update({
+                        name: currentUserName,
+                        handle: currentUserHandle
+                    });
+                }
+            } catch (err) {
+                console.warn('Firestore user init note:', err.message);
+            }
+        }
+
+        function startFirestoreSync() {
+            // 1. Live App Settings
+            db.collection('settings').doc('app').onSnapshot((docSnap) => {
+                if (docSnap.exists) {
+                    appSettings = { ...appSettings, ...docSnap.data() };
+                    applyAppSettingsUI();
+                }
+            });
+
+            // 2. Live User Profile & Wallet Balance
+            db.collection('users').doc(currentUserId).onSnapshot((docSnap) => {
+                if (docSnap.exists) {
+                    userProfile = { ...userProfile, ...docSnap.data() };
+                    updateWalletAndProfileUI();
+                }
+            });
+
+            // 3. Live Offers from Admin Panel ('offers' collection)
+            db.collection('offers').onSnapshot((snap) => {
+                liveOffers = snap.docs
+                    .map((d) => {
+                        const data = d.data();
+                        const normCat = String(data.category || 'kyc').toLowerCase() === 'non-kyc' ? 'non-kyc' : 'kyc';
+                        const isKyc = normCat === 'kyc';
+                        return {
+                            id: d.id,
+                            title: data.name || data.title || 'Offer',
+                            desc: data.subtitle || data.desc || 'Complete task to earn',
+                            category: normCat,
+                            tag: isKyc ? 'PRIME' : 'NON-KYC',
+                            reward: Number(data.reward || 0),
+                            link: data.url || data.link || '#',
+                            logo: data.logo || '',
+                            active: data.active !== false,
+                            icon: isKyc ? 'fa-shield-halved' : 'fa-bolt',
+                            color: isKyc ? 'from-emerald-500 to-teal-600' : 'from-indigo-500 to-purple-600',
+                            conditions: Array.isArray(data.steps) && data.steps.length
+                                ? data.steps
+                                : ['Open offer link and complete all required steps.', 'Return to My Offers and submit proof screenshot.'],
+                            createdAtSec: data.createdAt?.seconds || 0
+                        };
+                    })
+                    .filter((o) => o.active)
+                    .sort((a, b) => b.createdAtSec - a.createdAtSec);
+
+                renderTasks();
+                renderMyOffers();
+            });
+
+            // 4. User Task Statuses ('userTasks' collection)
+            db.collection('userTasks').where('userId', '==', currentUserId).onSnapshot((snap) => {
+                const map = {};
+                snap.docs.forEach((d) => {
+                    const data = d.data();
+                    if (data.offerId) {
+                        map[data.offerId] = data;
+                    }
+                });
+                userTaskStatuses = map;
+                renderTasks();
+                renderMyOffers();
+            });
+
+            // 5. User Submissions ('submissions' collection) for live status sync
+            db.collection('submissions').where('userId', '==', currentUserId).onSnapshot((snap) => {
+                snap.docs.forEach((d) => {
+                    const data = d.data();
+                    if (data.taskId) {
+                        const existing = userTaskStatuses[data.taskId] || {};
+                        let mappedStatus = existing.status || 'submitted';
+                        if (data.status === 'Approved') mappedStatus = 'completed';
+                        else if (data.status === 'Rejected') mappedStatus = 'expired';
+                        else if (data.status === 'Pending') mappedStatus = 'submitted';
+
+                        userTaskStatuses[data.taskId] = {
+                            ...existing,
+                            status: mappedStatus,
+                            rejectReason: data.rejectReason || existing.rejectReason || ''
+                        };
+                    }
+                });
+                renderTasks();
+                renderMyOffers();
+            });
+
+            // 6. Live Transactions Ledger (Earnings + Withdrawals)
+            let earningsList = [];
+            let withdrawalsList = [];
+
+            const rebuildTransactions = () => {
+                transactionsData = [...earningsList, ...withdrawalsList].sort((a, b) => b.ts - a.ts);
+                renderWalletTransactions();
+                renderEarningHistory();
+            };
+
+            db.collection('transactions').where('userId', '==', currentUserId).onSnapshot((snap) => {
+                earningsList = snap.docs.map((d) => {
+                    const data = d.data();
+                    return {
+                        id: d.id,
+                        category: 'earnings',
+                        type: data.type || 'completed',
+                        badge: data.badge || 'Task',
+                        title: data.title || `₹${Number(data.amount || 0).toFixed(2)} Cashback`,
+                        subtitle: data.subtitle || 'Task Reward',
+                        status: data.status || 'Completed',
+                        date: data.date || 'Recent',
+                        ts: data.createdAt?.seconds || 0
+                    };
+                });
+                rebuildTransactions();
+            });
+
+            db.collection('withdrawals').where('userId', '==', currentUserId).onSnapshot((snap) => {
+                withdrawalsList = snap.docs.map((d) => {
+                    const data = d.data();
+                    const amt = Number(data.amount || 0);
+                    return {
+                        id: d.id,
+                        category: 'withdrawal',
+                        type: 'withdrawal',
+                        badge: data.method || 'UPI',
+                        title: `₹${amt.toFixed(2)} Withdrawal`,
+                        subtitle: `${data.method || 'UPI'} — ${data.destination || ''}${data.utr ? ` (UTR: ${data.utr})` : ''}`,
+                        status: data.status || 'Pending',
+                        date: data.date || 'Recent',
+                        ts: data.createdAt?.seconds || 0
+                    };
+                });
+                rebuildTransactions();
+            });
+
+            // 7. Live Referrals List
+            db.collection('users').where('referrerId', '==', currentUserId).onSnapshot((snap) => {
+                referralsData = snap.docs.map((d) => {
+                    const data = d.data();
+                    return {
+                        id: d.id,
+                        name: data.name || 'Friend',
+                        earned: Number(data.earned || 0)
+                    };
+                });
+                renderReferrals();
+            });
+        }
+
+        function getMergedTasks() {
+            return liveOffers.map((offer) => {
+                const ut = userTaskStatuses[offer.id];
+                return {
+                    ...offer,
+                    status: ut ? ut.status : 'available',
+                    rejectReason: ut ? ut.rejectReason : ''
+                };
+            });
+        }
+
+        function applyAppSettingsUI() {
+            const minWd = Number(appSettings.minWithdrawal || 50);
+            const refPct = Number(appSettings.referralPercent || 50);
+
+            const minHint = document.getElementById('minWithdrawalHint');
+            if (minHint) minHint.innerText = `Minimum withdrawal ₹${minWd}`;
+
+            const invHeadline = document.getElementById('inviteHeadlineText');
+            if (invHeadline) invHeadline.innerText = `Refer & Earn ${refPct}%`;
+
+            const invRule = document.getElementById('inviteRulePctText');
+            if (invRule) invRule.innerText = `${refPct}% commission`;
+
+            const refStatLabel = document.getElementById('refStatPctLabel');
+            if (refStatLabel) refStatLabel.innerText = `${refPct}% Commission`;
+
+            const chLink = document.getElementById('profileChannelLink');
+            if (chLink && appSettings.telegramChannel) chLink.href = appSettings.telegramChannel;
+
+            const supLink = document.getElementById('profileSupportLink');
+            if (supLink && appSettings.supportLink) supLink.href = appSettings.supportLink;
+        }
+
+        function updateWalletAndProfileUI() {
+            const bal = Number(userProfile.balance || 0);
+            const earned = Number(userProfile.earned || 0);
+            const withdrawn = Number(userProfile.withdrawn || 0);
+
+            const homeBal = document.getElementById('homeWalletBalanceText');
+            const walletBal = document.getElementById('walletBalanceText');
+            const profEarned = document.getElementById('profileTotalEarnedText');
+            const profWithdrawn = document.getElementById('profileTotalWithdrawnText');
+
+            if (homeBal) homeBal.innerText = `₹${bal.toFixed(2)}`;
+            if (walletBal) walletBal.innerText = `₹${bal.toFixed(2)}`;
+            if (profEarned) profEarned.innerText = `₹${earned.toFixed(2)}`;
+            if (profWithdrawn) profWithdrawn.innerText = `₹${withdrawn.toFixed(2)}`;
+
+            if (userProfile.mobile) {
+                const upiInp = document.getElementById('upiIdInput');
+                if (upiInp && !upiInp.value) {
+                    // keep clean placeholder
+                }
+            }
+        }
+
+        window.onload = async function() {
             if (window.Telegram && window.Telegram.WebApp) {
                 window.Telegram.WebApp.ready();
                 window.Telegram.WebApp.expand();
             }
-            checkOfferExpirations();
             initUserData();
             initUniqueReferralLink();
             renderTasks();
@@ -816,18 +1150,21 @@
             renderReferrals();
             renderWalletTransactions();
             renderEarningHistory();
+            await ensureUserDocument();
+            startFirestoreSync();
         };
 
         function initUserData() {
-            const userName = currentTelegramUser.first_name || 'TechyUser11';
             const usernameEl = document.getElementById('profileUsernameText');
             const avatarEl = document.getElementById('profileAvatarInitial');
-            if (usernameEl) usernameEl.innerText = userName;
-            if (avatarEl) avatarEl.innerText = userName.charAt(0).toUpperCase();
+            const userIdEl = document.getElementById('profileUserIdText');
+            if (usernameEl) usernameEl.innerText = currentUserName;
+            if (avatarEl) avatarEl.innerText = currentUserName.charAt(0).toUpperCase();
+            if (userIdEl) userIdEl.innerText = `ID: ${currentUserId}`;
         }
 
         function initUniqueReferralLink() {
-            const uniqueRefCode = `ref_${currentTelegramUser.id}`;
+            const uniqueRefCode = `ref_${currentUserId}`;
             const uniqueLink = `https://t.me/${BOT_USERNAME}?start=${uniqueRefCode}`;
             const refEl = document.getElementById('refLinkText');
             if (refEl) refEl.innerText = uniqueLink;
@@ -847,26 +1184,47 @@
             renderTasks();
         }
 
+        function renderOfferAvatar(task, sizeClasses = 'w-12 h-12 rounded-2xl text-xl') {
+            if (task.logo) {
+                return `<img src="${task.logo}" alt="${escapeHtml(task.title)}" class="${sizeClasses} object-cover shadow-md shrink-0 border border-slate-200 bg-white group-hover:scale-105 transition-transform" />`;
+            }
+            return `
+                <div class="${sizeClasses} bg-gradient-to-tr ${task.color} text-white flex items-center justify-center font-bold shadow-md shrink-0 group-hover:scale-105 transition-transform">
+                    <i class="fa-solid ${task.icon}"></i>
+                </div>
+            `;
+        }
+
         function renderTasks() {
-            checkOfferExpirations();
             const activeContainer = document.getElementById('segmentActiveView');
             if (!activeContainer) return;
 
-            const availableTasks = tasksData.filter(t => t.status === 'available' && t.category === currentOfferCategoryFilter);
+            const merged = getMergedTasks();
+            const availableTasks = merged.filter(t => t.status === 'available' && t.category === currentOfferCategoryFilter);
+
+            // Update My Offers count badge
+            const myOffersCount = merged.filter(t => t.status !== 'available').length;
+            const badgeEl = document.getElementById('myOffersCountBadge');
+            if (badgeEl) {
+                if (myOffersCount > 0) {
+                    badgeEl.innerText = myOffersCount;
+                    badgeEl.classList.remove('hidden');
+                } else {
+                    badgeEl.classList.add('hidden');
+                }
+            }
 
             if (availableTasks.length === 0) {
                 activeContainer.innerHTML = `<div class="glass-card p-6 rounded-2xl text-center text-xs text-slate-500 font-bold">No active ${currentOfferCategoryFilter.toUpperCase()} offers available right now!</div>`;
             } else {
                 activeContainer.innerHTML = availableTasks.map(task => `
-                    <div onclick="openTaskDetail(${task.id})" class="group glass-card p-4 rounded-2xl hover:border-emerald-500/50 transition-all duration-300 cursor-pointer flex items-center justify-between shadow-sm hover:shadow-md">
-                        <div class="flex items-center space-x-3.5">
-                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr ${task.color} text-white flex items-center justify-center font-bold text-xl shadow-md shrink-0 group-hover:scale-105 transition-transform">
-                                <i class="fa-solid ${task.icon}"></i>
-                            </div>
-                            <div class="space-y-1">
-                                <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${task.tag}</span>
-                                <h4 class="font-black text-slate-900 text-sm tracking-wide group-hover:text-emerald-600 transition-colors">${task.title}</h4>
-                                <p class="text-xs text-slate-500">${task.desc}</p>
+                    <div onclick="openTaskDetail('${task.id}')" class="group glass-card p-4 rounded-2xl hover:border-emerald-500/50 transition-all duration-300 cursor-pointer flex items-center justify-between shadow-sm hover:shadow-md">
+                        <div class="flex items-center space-x-3.5 min-w-0 pr-2">
+                            ${renderOfferAvatar(task)}
+                            <div class="space-y-1 min-w-0">
+                                <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${escapeHtml(task.tag)}</span>
+                                <h4 class="font-black text-slate-900 text-sm tracking-wide group-hover:text-emerald-600 transition-colors truncate">${escapeHtml(task.title)}</h4>
+                                <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
                             </div>
                         </div>
                         <div class="shrink-0">
@@ -881,7 +1239,6 @@
 
         // Open & Close Full-Screen My Offers Screen
         function openMyOffersScreen() {
-            checkOfferExpirations();
             renderMyOffers();
             document.getElementById('myOffersScreen').classList.remove('hidden');
         }
@@ -903,18 +1260,28 @@
             renderMyOffers();
         }
 
+        function handleOfferProofFile(event, taskId) {
+            const file = event.target.files && event.target.files[0];
+            const labelEl = document.getElementById(`proofFileLabel_${taskId}`);
+            if (!file) return;
+            if (labelEl) labelEl.innerText = `Selected: ${file.name}`;
+            compressImageToBase64(file, 720, 0.72).then((b64) => {
+                proofImagesCache[taskId] = b64;
+            }).catch(() => {});
+        }
+
         function renderMyOffers() {
-            checkOfferExpirations();
             const container = document.getElementById('myOffersContainer');
             if (!container) return;
 
+            const merged = getMergedTasks();
             let filtered = [];
             if (currentMyOffersTab === 'ongoing') {
-                filtered = tasksData.filter(t => t.status === 'started' || t.status === 'submitted');
+                filtered = merged.filter(t => t.status === 'started' || t.status === 'submitted');
             } else if (currentMyOffersTab === 'completed') {
-                filtered = tasksData.filter(t => t.status === 'completed');
+                filtered = merged.filter(t => t.status === 'completed');
             } else if (currentMyOffersTab === 'expired') {
-                filtered = tasksData.filter(t => t.status === 'expired');
+                filtered = merged.filter(t => t.status === 'expired');
             }
 
             if (filtered.length === 0) {
@@ -924,41 +1291,71 @@
 
             if (currentMyOffersTab === 'ongoing') {
                 container.innerHTML = filtered.map(task => {
+                    const isSubmitted = task.status === 'submitted';
+                    const savedMobile = escapeHtml(userProfile.mobile || '');
                     return `
-                        <div onclick="closeMyOffersScreen(); openTaskDetail(${task.id})" class="bg-white border border-slate-200/80 p-4 rounded-3xl shadow-sm flex items-center justify-between cursor-pointer hover:border-emerald-500/50 transition">
-                            <div class="flex items-center space-x-3.5">
-                                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr ${task.color} text-white flex items-center justify-center font-bold text-base shrink-0 shadow-sm">
-                                    <i class="fa-solid ${task.icon}"></i>
-                                </div>
-                                <div class="space-y-1">
-                                    <div class="flex items-center space-x-1.5">
-                                        <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${task.tag}</span>
+                        <div class="bg-white border border-slate-200/80 p-4 rounded-3xl shadow-sm space-y-3.5">
+                            <div onclick="closeMyOffersScreen(); openTaskDetail('${task.id}')" class="flex items-center justify-between cursor-pointer">
+                                <div class="flex items-center space-x-3.5 min-w-0 pr-2">
+                                    ${renderOfferAvatar(task, 'w-12 h-12 rounded-2xl text-base')}
+                                    <div class="space-y-1 min-w-0">
+                                        <div class="flex items-center space-x-1.5">
+                                            <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${escapeHtml(task.tag)}</span>
+                                            <span class="text-[9px] font-black ${isSubmitted ? 'bg-amber-100 text-amber-800' : 'bg-blue-50 text-blue-700'} px-2 py-0.5 rounded-full uppercase">
+                                                ${isSubmitted ? 'Under Review' : 'In Progress'}
+                                            </span>
+                                        </div>
+                                        <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(task.title)}</h4>
+                                        <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
                                     </div>
-                                    <h4 class="font-black text-slate-900 text-sm">${task.title}</h4>
-                                    <p class="text-xs text-slate-500">${task.desc}</p>
+                                </div>
+                                <div class="shrink-0 text-right">
+                                    <span class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-sm block">
+                                        +₹${task.reward}
+                                    </span>
                                 </div>
                             </div>
-                            <div class="shrink-0 text-right">
-                                <span class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-sm block">
-                                    +₹${task.reward}
-                                </span>
-                            </div>
+
+                            ${isSubmitted ? `
+                                <div class="bg-amber-50/90 border border-amber-200/80 rounded-2xl p-3 flex items-center space-x-2.5 text-amber-900">
+                                    <i class="fa-solid fa-hourglass-half text-amber-600 text-sm"></i>
+                                    <span class="text-[11px] font-bold">Proof submitted! Admin will review and credit ₹${task.reward} soon.</span>
+                                </div>
+                            ` : `
+                                <div class="pt-3 border-t border-slate-100 space-y-2.5">
+                                    <div class="grid grid-cols-1 gap-2">
+                                        <input id="mobile_${task.id}" type="tel" value="${savedMobile}" placeholder="Registered Mobile / User ID" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-500" />
+                                        <input id="proof_${task.id}" type="text" placeholder="Proof note / Order ID (optional)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-500" />
+                                        <label for="proofFile_${task.id}" class="flex items-center justify-between bg-slate-50 hover:bg-emerald-50/50 border border-dashed border-slate-300 hover:border-emerald-500 rounded-xl px-3.5 py-2.5 cursor-pointer transition">
+                                            <span id="proofFileLabel_${task.id}" class="text-[11px] font-bold text-slate-600 truncate">Attach Screenshot Proof (Optional)</span>
+                                            <i class="fa-solid fa-camera text-emerald-600 text-xs shrink-0 ml-2"></i>
+                                            <input id="proofFile_${task.id}" type="file" accept="image/*" onchange="handleOfferProofFile(event, '${task.id}')" class="hidden" />
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="openOfferUrl('${escapeHtml(task.link)}')" class="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-[11px] transition shrink-0">
+                                            Open Link
+                                        </button>
+                                        <button id="submitBtn_${task.id}" onclick="submitTaskProof('${task.id}')" class="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 text-white font-black py-2.5 rounded-xl text-xs shadow-sm transition">
+                                            Submit Proof
+                                        </button>
+                                    </div>
+                                </div>
+                            `}
                         </div>
                     `;
                 }).join('');
             } else if (currentMyOffersTab === 'completed') {
                 container.innerHTML = filtered.map(task => `
-                    <div onclick="openTaskDetail(${task.id})" class="bg-white border border-slate-200/80 rounded-3xl p-4 flex items-center justify-between shadow-sm cursor-pointer">
-                        <div class="flex items-center space-x-3.5">
-                            <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr ${task.color} text-white flex items-center justify-center font-bold text-base shrink-0">
-                                <i class="fa-solid ${task.icon}"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-black text-slate-900 text-sm">${task.title}</h4>
-                                <p class="text-xs text-slate-500 font-medium">${task.desc}</p>
+                    <div onclick="openTaskDetail('${task.id}')" class="bg-white border border-slate-200/80 rounded-3xl p-4 flex items-center justify-between shadow-sm cursor-pointer">
+                        <div class="flex items-center space-x-3.5 min-w-0 pr-2">
+                            ${renderOfferAvatar(task, 'w-11 h-11 rounded-2xl text-base')}
+                            <div class="min-w-0">
+                                <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(task.title)}</h4>
+                                <p class="text-xs text-slate-500 font-medium truncate">${escapeHtml(task.desc)}</p>
                             </div>
                         </div>
-                        <div class="text-right space-y-1">
+                        <div class="text-right space-y-1 shrink-0">
                             <span class="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-full block">Completed</span>
                             <span class="font-black text-emerald-700 text-xs block">+₹${task.reward}</span>
                         </div>
@@ -966,23 +1363,21 @@
                 `).join('');
             } else if (currentMyOffersTab === 'expired') {
                 container.innerHTML = filtered.map(task => `
-                    <div class="bg-white/95 border border-slate-200/90 rounded-3xl p-4 flex items-center justify-between opacity-90 cursor-not-allowed select-none shadow-sm">
-                        <div class="flex items-center space-x-3.5">
-                            <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr ${task.color} opacity-75 text-white flex items-center justify-center font-bold text-base shrink-0">
-                                <i class="fa-solid ${task.icon}"></i>
-                            </div>
-                            <div>
+                    <div class="bg-white/95 border border-slate-200/90 rounded-3xl p-4 flex items-center justify-between opacity-90 select-none shadow-sm">
+                        <div class="flex items-center space-x-3.5 min-w-0 pr-2">
+                            ${renderOfferAvatar(task, 'w-11 h-11 rounded-2xl text-base opacity-75')}
+                            <div class="min-w-0">
                                 <div class="flex items-center space-x-1.5">
-                                    <h4 class="font-black text-slate-800 text-sm">${task.title}</h4>
-                                    <span class="text-[9px] font-black bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full uppercase">${task.tag}</span>
+                                    <h4 class="font-black text-slate-800 text-sm truncate">${escapeHtml(task.title)}</h4>
+                                    <span class="text-[9px] font-black bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full uppercase shrink-0">${escapeHtml(task.tag)}</span>
                                 </div>
-                                <p class="text-[11px] text-slate-500 font-medium">${task.desc}</p>
+                                <p class="text-[11px] text-slate-500 font-medium truncate">${escapeHtml(task.rejectReason || task.desc)}</p>
                             </div>
                         </div>
-                        <div class="text-right space-y-1">
+                        <div class="text-right space-y-1 shrink-0">
                             <span class="inline-flex items-center space-x-1 bg-rose-100 text-rose-700 text-[10px] font-black px-2.5 py-1 rounded-full">
                                 <i class="fa-solid fa-lock text-[9px]"></i>
-                                <span>Expired</span>
+                                <span>Rejected</span>
                             </span>
                         </div>
                     </div>
@@ -990,30 +1385,52 @@
             }
         }
 
-        // Open Task Detail Screen (Strictly blocks expired offers)
+        // Open Task Detail Screen
         function openTaskDetail(taskId) {
-            checkOfferExpirations();
-            const task = tasksData.find(t => t.id === taskId);
+            const merged = getMergedTasks();
+            const task = merged.find(t => t.id === taskId);
             if (!task) return;
-
-            if (task.status === 'expired') {
-                showToast("This offer has expired and can no longer be accessed.");
-                return;
-            }
 
             selectedTaskId = taskId;
 
             document.getElementById('detailTaskTitle').innerText = task.title;
             document.getElementById('detailTaskDesc').innerText = task.desc;
-            document.getElementById('detailTaskReward').innerText = `${task.reward}.00`;
-            document.getElementById('detailTaskIcon').className = `w-20 h-20 rounded-2xl bg-gradient-to-tr ${task.color} text-white flex items-center justify-center text-3xl shadow-md shrink-0`;
-            document.getElementById('detailTaskIcon').innerHTML = `<i class="fa-solid ${task.icon}"></i>`;
+            document.getElementById('detailTaskReward').innerText = `${Number(task.reward).toFixed(2)}`;
+
+            const iconEl = document.getElementById('detailTaskIcon');
+            if (task.logo) {
+                iconEl.className = 'w-20 h-20 rounded-2xl bg-white flex items-center justify-center shadow-md border border-emerald-100 shrink-0 overflow-hidden';
+                iconEl.innerHTML = `<img src="${task.logo}" alt="${escapeHtml(task.title)}" class="w-full h-full object-cover" />`;
+            } else {
+                iconEl.className = `w-20 h-20 rounded-2xl bg-gradient-to-tr ${task.color} text-white flex items-center justify-center text-3xl shadow-md shrink-0`;
+                iconEl.innerHTML = `<i class="fa-solid ${task.icon}"></i>`;
+            }
+
+            const statusBadge = document.getElementById('detailTaskStatusBadge');
+            const startBtn = document.getElementById('detailStartBtn');
+            if (task.status === 'completed') {
+                statusBadge.className = 'text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full';
+                statusBadge.innerText = 'Completed';
+                startBtn.innerHTML = `<span>COMPLETED</span><i class="fa-solid fa-circle-check"></i>`;
+            } else if (task.status === 'submitted') {
+                statusBadge.className = 'text-[10px] font-black bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full';
+                statusBadge.innerText = 'Under Review';
+                startBtn.innerHTML = `<span>VIEW IN MY OFFERS</span><i class="fa-solid fa-arrow-right"></i>`;
+            } else if (task.status === 'started') {
+                statusBadge.className = 'text-[10px] font-black bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full';
+                statusBadge.innerText = 'Ongoing';
+                startBtn.innerHTML = `<span>CONTINUE &amp; SUBMIT PROOF</span><i class="fa-solid fa-arrow-right"></i>`;
+            } else {
+                statusBadge.className = 'text-[10px] font-black bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full';
+                statusBadge.innerText = 'Available';
+                startBtn.innerHTML = `<span>START NOW</span><i class="fa-solid fa-arrow-right"></i>`;
+            }
 
             const conditionsContainer = document.getElementById('detailTaskConditions');
             conditionsContainer.innerHTML = task.conditions.map((c, index) => `
                 <div class="flex items-start space-x-2.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
                     <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5">${index + 1}</span>
-                    <p class="leading-relaxed text-slate-700">${c}</p>
+                    <p class="leading-relaxed text-slate-700">${escapeHtml(c)}</p>
                 </div>
             `).join('');
 
@@ -1025,47 +1442,128 @@
             selectedTaskId = null;
         }
 
-        function executeStartTask() {
+        async function executeStartTask() {
             if (!selectedTaskId) return;
-
-            const task = tasksData.find(t => t.id === selectedTaskId);
+            const merged = getMergedTasks();
+            const task = merged.find(t => t.id === selectedTaskId);
             if (!task) return;
 
-            // Shift task from active to ongoing state and set timestamp
-            task.status = 'started';
-            task.startedAt = Date.now();
-
-            closeTaskDetail();
-            renderTasks();
-
-            // Opens the external offer URL
-            openOfferUrl(task.link);
-        }
-
-        function openOfferUrl(url) {
-            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
-                window.Telegram.WebApp.openLink(url);
-            } else {
-                window.open(url, '_blank');
-            }
-        }
-
-        function submitTaskProof(taskId) {
-            const task = tasksData.find(t => t.id === taskId);
-            if (!task || task.status === 'expired') return;
-
-            const mobileInput = document.getElementById(`mobile_${taskId}`);
-            const proofInput = document.getElementById(`proof_${taskId}`);
-
-            const mobile = mobileInput ? mobileInput.value.trim() : '';
-            const proof = proofInput ? proofInput.value.trim() : '';
-
-            if (!mobile || !proof) {
+            if (task.status === 'submitted' || task.status === 'completed') {
+                closeTaskDetail();
+                openMyOffersScreen();
                 return;
             }
 
-            task.status = 'submitted';
+            // Save 'started' status to Firestore so it persists in My Offers -> Ongoing
+            userTaskStatuses[task.id] = {
+                userId: currentUserId,
+                offerId: task.id,
+                status: 'started'
+            };
+
+            try {
+                await db.collection('userTasks').doc(`${currentUserId}_${task.id}`).set({
+                    userId: currentUserId,
+                    offerId: task.id,
+                    status: 'started',
+                    startedAt: FieldValue.serverTimestamp()
+                }, { merge: true });
+            } catch (err) {
+                console.warn('userTasks write:', err.message);
+            }
+
+            const offerLink = task.link;
+            closeTaskDetail();
+            renderTasks();
             renderMyOffers();
+
+            if (offerLink && offerLink !== '#') {
+                openOfferUrl(offerLink);
+            }
+        }
+
+        function openOfferUrl(url) {
+            if (!url || url === '#') return;
+            const formattedUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
+                window.Telegram.WebApp.openLink(formattedUrl);
+            } else {
+                window.open(formattedUrl, '_blank');
+            }
+        }
+
+        async function submitTaskProof(taskId) {
+            const merged = getMergedTasks();
+            const task = merged.find(t => t.id === taskId);
+            if (!task) return;
+
+            const mobileInput = document.getElementById(`mobile_${taskId}`);
+            const proofInput = document.getElementById(`proof_${taskId}`);
+            const fileInput = document.getElementById(`proofFile_${taskId}`);
+            const submitBtn = document.getElementById(`submitBtn_${taskId}`);
+
+            const mobile = mobileInput ? mobileInput.value.trim() : '';
+            const proofNote = proofInput ? proofInput.value.trim() : '';
+
+            if (!mobile) {
+                triggerInputAlert(`mobile_${taskId}`);
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerText = 'Submitting...';
+            }
+
+            let screenshotData = proofImagesCache[taskId] || '';
+            if (!screenshotData && fileInput && fileInput.files && fileInput.files[0]) {
+                try {
+                    screenshotData = await compressImageToBase64(fileInput.files[0], 720, 0.72);
+                } catch (_) {}
+            }
+
+            const nowStr = formatNowDate();
+
+            try {
+                // 1. Write submission to 'submissions' collection -> Appears immediately in Admin Panel Proofs tab
+                await db.collection('submissions').add({
+                    userId: currentUserId,
+                    userName: currentUserName,
+                    mobile: mobile,
+                    taskId: task.id,
+                    taskName: task.title,
+                    category: task.category,
+                    reward: Number(task.reward || 0),
+                    status: 'Pending',
+                    proofSummary: proofNote || `Completed ${task.title} (${mobile})`,
+                    screenshotData: screenshotData,
+                    referrer: userProfile.referrer || null,
+                    referrerId: userProfile.referrerId || null,
+                    date: nowStr,
+                    createdAt: FieldValue.serverTimestamp()
+                });
+
+                // 2. Update userTasks status to 'submitted'
+                await db.collection('userTasks').doc(`${currentUserId}_${task.id}`).set({
+                    userId: currentUserId,
+                    offerId: task.id,
+                    status: 'submitted'
+                }, { merge: true });
+
+                // 3. Save user's registered mobile on profile
+                await db.collection('users').doc(currentUserId).set({
+                    mobile: mobile
+                }, { merge: true });
+
+                userTaskStatuses[task.id] = { status: 'submitted' };
+                renderMyOffers();
+            } catch (err) {
+                console.error('Submit proof error:', err);
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Submit Proof';
+                }
+            }
         }
 
         // Wallet Tab Switching
@@ -1102,9 +1600,8 @@
                     : (tx.badge === 'Task' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700');
                 const statusStyle = tx.status === 'Pending'
                     ? 'bg-amber-100 text-amber-800'
-                    : 'bg-emerald-100 text-emerald-800';
+                    : (tx.status === 'Rejected' || tx.status === 'Failed' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800');
 
-                // Check if withdrawal is pending to show the processing time note
                 let pendingNotice = '';
                 if (tx.category === 'withdrawal' && tx.status === 'Pending') {
                     pendingNotice = `
@@ -1123,14 +1620,14 @@
                             </div>
                             <div class="flex-1 min-w-0 space-y-1">
                                 <div class="flex items-center justify-between gap-2">
-                                    <h4 class="font-black text-slate-900 text-sm truncate">${tx.title}</h4>
-                                    <span class="text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0 ${statusStyle}">${tx.status}</span>
+                                    <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(tx.title)}</h4>
+                                    <span class="text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0 ${statusStyle}">${escapeHtml(tx.status)}</span>
                                 </div>
                                 <div class="flex items-center space-x-1.5">
-                                    <span class="text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${badgeStyle}">${tx.badge}</span>
-                                    <p class="text-xs text-slate-600 font-medium truncate">${tx.subtitle}</p>
+                                    <span class="text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${badgeStyle}">${escapeHtml(tx.badge)}</span>
+                                    <p class="text-xs text-slate-600 font-medium truncate">${escapeHtml(tx.subtitle)}</p>
                                 </div>
-                                <span class="text-[11px] text-slate-400 font-medium block">${tx.date}</span>
+                                <span class="text-[11px] text-slate-400 font-medium block">${escapeHtml(tx.date)}</span>
                             </div>
                         </div>
                         ${pendingNotice}
@@ -1202,14 +1699,14 @@
                         </div>
                         <div class="flex-1 min-w-0 space-y-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="font-black text-slate-900 text-sm truncate">${tx.title}</h4>
-                                <span class="text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0 ${statusStyle}">${tx.status}</span>
+                                <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(tx.title)}</h4>
+                                <span class="text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0 ${statusStyle}">${escapeHtml(tx.status)}</span>
                             </div>
                             <div class="flex items-center space-x-1.5">
-                                <span class="text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${badgeStyle}">${tx.badge}</span>
-                                <p class="text-xs text-slate-600 font-medium truncate">${tx.subtitle}</p>
+                                <span class="text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${badgeStyle}">${escapeHtml(tx.badge)}</span>
+                                <p class="text-xs text-slate-600 font-medium truncate">${escapeHtml(tx.subtitle)}</p>
                             </div>
-                            <span class="text-[11px] text-slate-400 font-medium block">${tx.date}</span>
+                            <span class="text-[11px] text-slate-400 font-medium block">${escapeHtml(tx.date)}</span>
                         </div>
                     </div>
                 `;
@@ -1228,10 +1725,8 @@
         function closeSuccessWithdrawModal() {
             document.getElementById('successWithdrawModal').classList.add('hidden');
             if (pendingWithdrawalInfo) {
-                transactionsData.unshift(pendingWithdrawalInfo);
                 pendingWithdrawalInfo = null;
                 switchWalletTab('withdrawal');
-                renderEarningHistory();
             }
         }
 
@@ -1296,21 +1791,16 @@
             }
         }
 
-        function showToast(message) {
-            // Disabled popup toast messages
-        }
-
         function renderReferrals() {
             const listContainer = document.getElementById('referralsListContainer');
             if (!listContainer) return;
 
             const totalFriends = referralsData.length;
+            const refPct = Number(appSettings.referralPercent || 50);
             let totalCommission = 0;
 
             referralsData.forEach(friend => {
-                friend.completedTasks.forEach(t => {
-                    totalCommission += t.commission;
-                });
+                totalCommission += Math.round((Number(friend.earned || 0) * refPct) / 100);
             });
 
             document.getElementById('totalReferralsBadge').innerText = `${totalFriends} Friend${totalFriends === 1 ? '' : 's'}`;
@@ -1318,28 +1808,26 @@
             document.getElementById('statTotalCommission').innerText = `₹${totalCommission.toFixed(2)}`;
 
             if (totalFriends === 0) {
-                listContainer.innerHTML = `<div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-center text-xs text-slate-500 font-semibold">No referrals yet. Share your link to start earning 50% lifetime commission!</div>`;
+                listContainer.innerHTML = `<div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-center text-xs text-slate-500 font-semibold">No referrals yet. Share your link to start earning ${refPct}% commission!</div>`;
                 return;
             }
 
             listContainer.innerHTML = referralsData.map(friend => {
-                const completedCount = friend.completedTasks.length;
-                const totalEarned = friend.completedTasks.reduce((sum, t) => sum + t.commission, 0);
-
+                const estComm = Math.round((Number(friend.earned || 0) * refPct) / 100);
                 return `
                     <div class="bg-emerald-50/50 border border-emerald-200/70 rounded-3xl p-4 flex items-center justify-between shadow-sm">
                         <div class="flex items-center space-x-3.5">
                             <div class="w-11 h-11 rounded-full bg-slate-900 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-sm">
-                                ${friend.name.charAt(0).toUpperCase()}
+                                ${escapeHtml(friend.name.charAt(0).toUpperCase())}
                             </div>
                             <div class="space-y-0.5">
-                                <h4 class="font-black text-slate-900 text-xs tracking-wide uppercase">${friend.name}</h4>
-                                <p class="text-xs font-bold text-slate-700">${completedCount}/3 Offer Completed</p>
+                                <h4 class="font-black text-slate-900 text-xs tracking-wide uppercase">${escapeHtml(friend.name)}</h4>
+                                <p class="text-xs font-bold text-slate-700">Friend Earned: ₹${Number(friend.earned || 0).toFixed(0)}</p>
                             </div>
                         </div>
                         <div class="text-right shrink-0">
-                            <span class="text-base font-black text-slate-900 block">₹${totalEarned.toFixed(0)}</span>
-                            <span class="text-[10px] text-slate-500 font-medium block">You will earn</span>
+                            <span class="text-base font-black text-slate-900 block">₹${estComm.toFixed(0)}</span>
+                            <span class="text-[10px] text-slate-500 font-medium block">${refPct}% Bonus</span>
                         </div>
                     </div>
                 `;
@@ -1356,12 +1844,18 @@
 
         function copyRefLink() {
             const refText = document.getElementById('refLinkText').innerText;
+            const copyBtn = document.getElementById('copyRefBtn');
             const tempInput = document.createElement('input');
             tempInput.value = refText;
             document.body.appendChild(tempInput);
             tempInput.select();
             document.execCommand('copy');
             document.body.removeChild(tempInput);
+
+            if (copyBtn) {
+                copyBtn.innerText = 'Copied!';
+                setTimeout(() => { copyBtn.innerText = 'Copy'; }, 2000);
+            }
         }
 
         function shareLinkTelegram() {
@@ -1387,125 +1881,133 @@
             }, 450);
         }
 
-        function submitWithdrawal() {
-            let badgeLabel = 'UPI';
-            let subtitleText = '';
+        async function submitWithdrawal() {
+            let methodLabel = 'UPI';
+            let destinationVal = '';
+            const minWd = Number(appSettings.minWithdrawal || 50);
+            const currentBal = Number(userProfile.balance || 0);
 
             // Reset error states
             const upiInput = document.getElementById('upiIdInput');
             const upiError = document.getElementById('upiErrorMsg');
-            if (upiInput) {
-                upiInput.classList.remove('border-rose-500', 'bg-rose-50');
-            }
-            if (upiError) {
-                upiError.classList.add('hidden');
-                upiError.innerText = '';
-            }
+            if (upiInput) upiInput.classList.remove('border-rose-500', 'bg-rose-50');
+            if (upiError) { upiError.classList.add('hidden'); upiError.innerText = ''; }
 
             const gcInput = document.getElementById('giftCardContactInput');
             const emailError = document.getElementById('emailErrorMsg');
-            if (gcInput) {
-                gcInput.classList.remove('border-rose-500', 'bg-rose-50');
-            }
-            if (emailError) {
-                emailError.classList.add('hidden');
-                emailError.innerText = '';
-            }
+            if (gcInput) gcInput.classList.remove('border-rose-500', 'bg-rose-50');
+            if (emailError) { emailError.classList.add('hidden'); emailError.innerText = ''; }
 
             const amountWrapper = document.getElementById('withdrawAmountWrapper');
             const amountInput = document.getElementById('withdrawAmountInput');
             const amountError = document.getElementById('amountErrorMsg');
             const amountHint = document.getElementById('minWithdrawalHint');
-            if (amountWrapper) {
-                amountWrapper.classList.remove('border-rose-500', 'bg-rose-50');
-            }
-            if (amountError) {
-                amountError.classList.add('hidden');
-                amountError.innerText = '';
-            }
-            if (amountHint) {
-                amountHint.classList.remove('hidden');
-            }
+            if (amountWrapper) amountWrapper.classList.remove('border-rose-500', 'bg-rose-50');
+            if (amountError) { amountError.classList.add('hidden'); amountError.innerText = ''; }
+            if (amountHint) amountHint.classList.remove('hidden');
 
             if (selectedPayoutCategory === 'upi') {
                 const upiId = upiInput ? upiInput.value.trim() : '';
                 const atIndex = upiId.indexOf('@');
-                // Check if @ is missing or if there is nothing after @
                 if (!upiId || atIndex === -1 || atIndex === upiId.length - 1) {
-                    if (upiInput) {
-                        upiInput.classList.add('border-rose-500', 'bg-rose-50');
-                    }
+                    if (upiInput) upiInput.classList.add('border-rose-500', 'bg-rose-50');
                     if (upiError) {
                         upiError.innerText = 'Please enter a valid UPI ID (e.g. name@upi)';
                         upiError.classList.remove('hidden');
                     }
+                    triggerInputAlert('upiIdInput');
                     return;
                 }
-                badgeLabel = 'UPI';
-                subtitleText = `UPI Payout — ${upiId} (Withdrawal will be processed within 24-48 hours)`;
+                methodLabel = 'UPI';
+                destinationVal = upiId;
             } else {
                 const email = gcInput ? gcInput.value.trim() : '';
                 const atIndex = email.indexOf('@');
                 if (!email || atIndex === -1 || atIndex === email.length - 1) {
-                    if (gcInput) {
-                        gcInput.classList.add('border-rose-500', 'bg-rose-50');
-                    }
+                    if (gcInput) gcInput.classList.add('border-rose-500', 'bg-rose-50');
                     if (emailError) {
                         emailError.innerText = 'Please enter a valid email address';
                         emailError.classList.remove('hidden');
                     }
+                    triggerInputAlert('giftCardContactInput');
                     return;
                 }
-                badgeLabel = 'Gift Card';
-                subtitleText = `${selectedGiftCardBrand} Voucher — ${email} (Withdrawal will be processed within 24-48 hours)`;
+                methodLabel = selectedGiftCardBrand;
+                destinationVal = email;
             }
 
             const amount = parseFloat(amountInput ? amountInput.value : NaN);
 
-            if (isNaN(amount) || amount < 50 || amount > userBalance) {
-                if (amountWrapper) {
-                    amountWrapper.classList.add('border-rose-500', 'bg-rose-50');
-                }
+            if (isNaN(amount) || amount < minWd || amount > currentBal) {
+                if (amountWrapper) amountWrapper.classList.add('border-rose-500', 'bg-rose-50');
                 if (amountError) {
-                    amountError.innerText = 'Minimum withdrawal is ₹50';
+                    amountError.innerText = amount > currentBal
+                        ? `Insufficient balance (Available: ₹${currentBal.toFixed(2)})`
+                        : `Minimum withdrawal is ₹${minWd}`;
                     amountError.classList.remove('hidden');
                 }
-                if (amountHint) {
-                    amountHint.classList.add('hidden');
-                }
+                if (amountHint) amountHint.classList.add('hidden');
+                triggerInputAlert('withdrawAmountWrapper');
                 return;
             }
 
-            userBalance -= amount;
-            document.getElementById('walletBalanceText').innerText = `₹${userBalance.toFixed(2)}`;
+            const submitBtn = document.getElementById('submitWithdrawBtn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerText = 'Submitting...';
+            }
 
-            pendingWithdrawalInfo = {
-                id: 'TXN_' + Date.now(),
-                category: 'withdrawal',
-                type: 'withdrawal',
-                badge: badgeLabel,
-                title: `₹${amount.toFixed(2)} Withdrawal`,
-                subtitle: subtitleText,
-                status: 'Pending',
-                date: 'Just now'
-            };
+            const nowStr = formatNowDate();
 
-            document.getElementById('successModalAmountText').innerText = `₹${amount.toFixed(2)}`;
-            closeWithdrawModal();
-            document.getElementById('successWithdrawModal').classList.remove('hidden');
-        }
+            try {
+                // 1. Deduct amount from user's Firestore wallet balance
+                await db.collection('users').doc(currentUserId).set({
+                    balance: FieldValue.increment(-amount)
+                }, { merge: true });
 
-        function openSupport() {
-            // Support action
+                // 2. Write withdrawal request to 'withdrawals' collection -> Appears immediately in Admin Panel Payouts tab
+                await db.collection('withdrawals').add({
+                    userId: currentUserId,
+                    userName: currentUserName,
+                    method: methodLabel,
+                    destination: destinationVal,
+                    amount: amount,
+                    status: 'Pending',
+                    date: nowStr,
+                    createdAt: FieldValue.serverTimestamp()
+                });
+
+                pendingWithdrawalInfo = { amount };
+                if (amountInput) amountInput.value = '';
+                document.getElementById('successModalAmountText').innerText = `₹${amount.toFixed(2)}`;
+                closeWithdrawModal();
+                document.getElementById('successWithdrawModal').classList.remove('hidden');
+            } catch (err) {
+                console.error('Withdrawal submit error:', err);
+                if (amountError) {
+                    amountError.innerText = 'Failed to submit withdrawal. Please try again.';
+                    amountError.classList.remove('hidden');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Submit';
+                }
+            }
         }
 
         function openRaiseTicket() {
             const selectEl = document.getElementById('ticketOfferSelect');
             if (selectEl) {
-                selectEl.innerHTML = tasksData.map(task => 
-                    `<option value="${task.title}">${task.title} (+₹${task.reward})</option>`
-                ).join('');
+                if (liveOffers.length > 0) {
+                    selectEl.innerHTML = liveOffers.map(task =>
+                        `<option value="${escapeHtml(task.title)}">${escapeHtml(task.title)} (+₹${task.reward})</option>`
+                    ).join('') + `<option value="General / Withdrawal Issue">General / Withdrawal Issue</option>`;
+                } else {
+                    selectEl.innerHTML = `<option value="General / Withdrawal Issue">General / Withdrawal Issue</option>`;
+                }
             }
+            ticketImageBase64 = '';
             document.getElementById('ticketProofInput').value = '';
             document.getElementById('ticketProofFileName').innerText = 'Tap to upload screenshot proof';
             document.getElementById('ticketProofErrorMsg').classList.add('hidden');
@@ -1521,6 +2023,9 @@
             if (file && labelEl) {
                 labelEl.innerText = `Selected: ${file.name}`;
                 document.getElementById('ticketProofErrorMsg').classList.add('hidden');
+                compressImageToBase64(file, 720, 0.72).then((b64) => {
+                    ticketImageBase64 = b64;
+                }).catch(() => {});
             }
         }
 
@@ -1528,12 +2033,14 @@
             document.getElementById('raiseTicketScreen').classList.add('hidden');
         }
 
-        function submitSupportTicket() {
+        async function submitSupportTicket() {
+            const selectEl = document.getElementById('ticketOfferSelect');
             const proofInput = document.getElementById('ticketProofInput');
             const proofErrorMsg = document.getElementById('ticketProofErrorMsg');
             const descInput = document.getElementById('ticketDescriptionInput');
             const descErrorMsg = document.getElementById('ticketDescErrorMsg');
             const successBanner = document.getElementById('ticketSuccessBanner');
+            const submitBtn = document.getElementById('submitTicketBtn');
 
             let isValid = true;
 
@@ -1553,10 +2060,43 @@
 
             if (!isValid) return;
 
-            successBanner.classList.remove('hidden');
-            proofInput.value = '';
-            descInput.value = '';
-            document.getElementById('ticketProofFileName').innerText = 'Tap to upload screenshot proof';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerText = 'Submitting...';
+            }
+
+            if (!ticketImageBase64 && proofInput.files[0]) {
+                try {
+                    ticketImageBase64 = await compressImageToBase64(proofInput.files[0], 720, 0.72);
+                } catch (_) {}
+            }
+
+            try {
+                // Write ticket to 'tickets' collection -> Appears immediately in Admin Panel Tickets tab
+                await db.collection('tickets').add({
+                    userId: currentUserId,
+                    userName: currentUserName,
+                    offerName: selectEl ? selectEl.value : 'Support Ticket',
+                    description: descInput.value.trim(),
+                    screenshotData: ticketImageBase64,
+                    status: 'Open',
+                    date: formatNowDate(),
+                    createdAt: FieldValue.serverTimestamp()
+                });
+
+                successBanner.classList.remove('hidden');
+                ticketImageBase64 = '';
+                proofInput.value = '';
+                descInput.value = '';
+                document.getElementById('ticketProofFileName').innerText = 'Tap to upload screenshot proof';
+            } catch (err) {
+                console.error('Ticket submit error:', err);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Submit Ticket';
+                }
+            }
         }
 
         function openTermsModal() {
