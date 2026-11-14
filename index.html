@@ -1291,57 +1291,21 @@
 
             if (currentMyOffersTab === 'ongoing') {
                 container.innerHTML = filtered.map(task => {
-                    const isSubmitted = task.status === 'submitted';
-                    const savedMobile = escapeHtml(userProfile.mobile || '');
                     return `
-                        <div class="bg-white border border-slate-200/80 p-4 rounded-3xl shadow-sm space-y-3.5">
-                            <div onclick="closeMyOffersScreen(); openTaskDetail('${task.id}')" class="flex items-center justify-between cursor-pointer">
-                                <div class="flex items-center space-x-3.5 min-w-0 pr-2">
-                                    ${renderOfferAvatar(task, 'w-12 h-12 rounded-2xl text-base')}
-                                    <div class="space-y-1 min-w-0">
-                                        <div class="flex items-center space-x-1.5">
-                                            <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${escapeHtml(task.tag)}</span>
-                                            <span class="text-[9px] font-black ${isSubmitted ? 'bg-amber-100 text-amber-800' : 'bg-blue-50 text-blue-700'} px-2 py-0.5 rounded-full uppercase">
-                                                ${isSubmitted ? 'Under Review' : 'In Progress'}
-                                            </span>
-                                        </div>
-                                        <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(task.title)}</h4>
-                                        <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
-                                    </div>
-                                </div>
-                                <div class="shrink-0 text-right">
-                                    <span class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-sm block">
-                                        +₹${task.reward}
-                                    </span>
+                        <div onclick="closeMyOffersScreen(); openTaskDetail('${task.id}')" class="bg-white border border-slate-200/80 p-4 rounded-3xl shadow-sm flex items-center justify-between cursor-pointer hover:border-emerald-500/50 transition">
+                            <div class="flex items-center space-x-3.5 min-w-0 pr-2">
+                                ${renderOfferAvatar(task, 'w-12 h-12 rounded-2xl text-base')}
+                                <div class="space-y-1 min-w-0">
+                                    <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${escapeHtml(task.tag)}</span>
+                                    <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(task.title)}</h4>
+                                    <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
                                 </div>
                             </div>
-
-                            ${isSubmitted ? `
-                                <div class="bg-amber-50/90 border border-amber-200/80 rounded-2xl p-3 flex items-center space-x-2.5 text-amber-900">
-                                    <i class="fa-solid fa-hourglass-half text-amber-600 text-sm"></i>
-                                    <span class="text-[11px] font-bold">Proof submitted! Admin will review and credit ₹${task.reward} soon.</span>
-                                </div>
-                            ` : `
-                                <div class="pt-3 border-t border-slate-100 space-y-2.5">
-                                    <div class="grid grid-cols-1 gap-2">
-                                        <input id="mobile_${task.id}" type="tel" value="${savedMobile}" placeholder="Registered Mobile / User ID" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-500" />
-                                        <input id="proof_${task.id}" type="text" placeholder="Proof note / Order ID (optional)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-500" />
-                                        <label for="proofFile_${task.id}" class="flex items-center justify-between bg-slate-50 hover:bg-emerald-50/50 border border-dashed border-slate-300 hover:border-emerald-500 rounded-xl px-3.5 py-2.5 cursor-pointer transition">
-                                            <span id="proofFileLabel_${task.id}" class="text-[11px] font-bold text-slate-600 truncate">Attach Screenshot Proof (Optional)</span>
-                                            <i class="fa-solid fa-camera text-emerald-600 text-xs shrink-0 ml-2"></i>
-                                            <input id="proofFile_${task.id}" type="file" accept="image/*" onchange="handleOfferProofFile(event, '${task.id}')" class="hidden" />
-                                        </label>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <button onclick="openOfferUrl('${escapeHtml(task.link)}')" class="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-[11px] transition shrink-0">
-                                            Open Link
-                                        </button>
-                                        <button id="submitBtn_${task.id}" onclick="submitTaskProof('${task.id}')" class="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 text-white font-black py-2.5 rounded-xl text-xs shadow-sm transition">
-                                            Submit Proof
-                                        </button>
-                                    </div>
-                                </div>
-                            `}
+                            <div class="shrink-0 text-right">
+                                <span class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-sm block">
+                                    +₹${task.reward}
+                                </span>
+                            </div>
                         </div>
                     `;
                 }).join('');
