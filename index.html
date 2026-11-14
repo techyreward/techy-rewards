@@ -168,14 +168,18 @@
                 <div class="w-9"></div>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-                <div class="bg-white border border-slate-200/80 rounded-2xl p-4 text-center shadow-sm">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Total Invited</span>
-                    <span id="statTotalInvited" class="text-xl font-black text-slate-900 mt-0.5 block">0</span>
+            <div class="grid grid-cols-3 gap-2.5">
+                <div class="bg-white border border-slate-200/80 rounded-2xl p-3.5 text-center shadow-sm">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Invited</span>
+                    <span id="statTotalInvited" class="text-lg font-black text-slate-900 mt-0.5 block">0</span>
                 </div>
-                <div class="bg-emerald-50/90 border border-emerald-200/80 rounded-2xl p-4 text-center shadow-sm">
-                    <span id="refStatPctLabel" class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">50% Commission</span>
-                    <span id="statTotalCommission" class="text-xl font-black text-emerald-700 mt-0.5 block">₹0.00</span>
+                <div class="bg-teal-50/90 border border-teal-200/80 rounded-2xl p-3.5 text-center shadow-sm">
+                    <span class="text-[10px] font-bold text-teal-700 uppercase tracking-wider block">Qualified</span>
+                    <span id="statTotalQualified" class="text-lg font-black text-teal-700 mt-0.5 block">0</span>
+                </div>
+                <div class="bg-emerald-50/90 border border-emerald-200/80 rounded-2xl p-3.5 text-center shadow-sm">
+                    <span id="refStatPctLabel" class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">50% Comm.</span>
+                    <span id="statTotalCommission" class="text-lg font-black text-emerald-700 mt-0.5 block">₹0.00</span>
                 </div>
             </div>
 
@@ -789,6 +793,25 @@
         let currentTelegramUser = null;
         let startParamRef = null;
 
+        function extractReferralCode(rawParam) {
+            let candidate = rawParam || '';
+            if (!candidate) {
+                try {
+                    const params = new URLSearchParams(window.location.search);
+                    candidate = params.get('ref') || params.get('startapp') || params.get('start') || '';
+                } catch (_) {
+                    candidate = '';
+                }
+            }
+            candidate = String(candidate).trim();
+            if (!candidate) return null;
+            if (candidate.startsWith('ref_')) {
+                const parsed = candidate.replace(/^ref_/, '').trim();
+                return parsed || null;
+            }
+            return candidate;
+        }
+
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
@@ -796,9 +819,9 @@
             if (initUnsafe.user) {
                 currentTelegramUser = initUnsafe.user;
             }
-            if (initUnsafe.start_param && String(initUnsafe.start_param).startsWith('ref_')) {
-                startParamRef = String(initUnsafe.start_param).replace('ref_', '');
-            }
+            startParamRef = extractReferralCode(initUnsafe.start_param);
+        } else {
+            startParamRef = extractReferralCode('');
         }
 
         // Browser fallback ID if opened outside Telegram
@@ -837,6 +860,8 @@
         let userTaskStatuses = {};
         let transactionsData = [];
         let referralsData = [];
+        let directReferralsList = [];
+        let legacyReferralsList = [];
 
         let currentMyOffersTab = 'ongoing';
         let currentOfferCategoryFilter = 'kyc';
@@ -893,6 +918,131 @@
                 d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
         }
 
+        // ==================== DEDICATED REFERRAL DATA SYNC FOR ADMIN PANEL ====================
+        async function createAdminReferralRecord(referrerId, incrementReferrerCount = true) {
+            if (!referrerId || referrerId === currentUserId) return;
+            try {
+                const refDoc = db.collection('referrals').doc(currentUserId);
+                const refSnap = await refDoc.get();
+                if (refSnap.exists) return;
+
+                let referrerName = `User ${referrerId}`;
+                try {
+                    const uplinerSnap = await db.collection('users').doc(referrerId).get();
+                    if (uplinerSnap.exists && uplinerSnap.data().name) {
+                        referrerName = uplinerSnap.data().name;
+                    }
+                } catch (_) {}
+
+                const refPct = Number(appSettings.referralPercent || 50);
+                await refDoc.set({
+                    referrerId: String(referrerId),
+                    referrerName: referrerName,
+                    referredUserId: currentUserId,
+                    referredUserName: currentUserName,
+                    referredUserHandle: currentUserHandle,
+                    commissionPercent: refPct,
+                    tasksCompleted: 0,
+                    primeTasksCompleted: 0,
+                    qualified: false,
+                    friendTotalEarned: 0,
+                    commissionEarned: 0,
+                    status: 'Pending',
+                    joinedDate: formatNowDate(),
+                    createdAt: FieldValue.serverTimestamp()
+                });
+
+                if (incrementReferrerCount) {
+                    await db.collection('users').doc(referrerId).set({
+                        referralsCount: FieldValue.increment(1)
+                    }, { merge: true });
+                }
+            } catch (err) {
+                console.warn('Referral record creation note:', err.message);
+            }
+        }
+
+        async function syncReferralProgressToAdmin(submissionsDocs = []) {
+            const refId = userProfile.referrerId || startParamRef;
+            if (!refId || refId === currentUserId) return;
+
+            try {
+                const approved = submissionsDocs.filter((s) => s.status === 'Approved');
+                const tasksCompleted = approved.length;
+                const primeTasksCompleted = approved.filter((s) => {
+                    const cat = String(s.category || '').toLowerCase();
+                    return cat === 'kyc' || cat === 'prime';
+                }).length;
+
+                const isQualified = tasksCompleted >= 3 || primeTasksCompleted >= 1;
+                const friendEarned = Number(userProfile.earned || 0);
+                const refPct = Number(appSettings.referralPercent || 50);
+                const computedComm = isQualified ? Number(((friendEarned * refPct) / 100).toFixed(2)) : 0;
+
+                const refDoc = db.collection('referrals').doc(currentUserId);
+                const snap = await refDoc.get();
+                if (!snap.exists) {
+                    await createAdminReferralRecord(refId, false);
+                }
+                const existingComm = snap.exists ? Number(snap.data().commissionEarned || 0) : 0;
+
+                await refDoc.set({
+                    referrerId: String(refId),
+                    referredUserId: currentUserId,
+                    referredUserName: currentUserName,
+                    referredUserHandle: currentUserHandle,
+                    tasksCompleted: tasksCompleted,
+                    primeTasksCompleted: primeTasksCompleted,
+                    qualified: isQualified,
+                    friendTotalEarned: friendEarned,
+                    commissionEarned: Math.max(existingComm, computedComm),
+                    status: isQualified ? 'Qualified' : 'Pending',
+                    updatedAt: FieldValue.serverTimestamp()
+                }, { merge: true });
+            } catch (err) {
+                console.warn('Referral progress sync note:', err.message);
+            }
+        }
+
+        function mergeReferralSources() {
+            const merged = new Map();
+            const refPct = Number(appSettings.referralPercent || 50);
+
+            legacyReferralsList.forEach((u) => {
+                const earned = Number(u.earned || 0);
+                merged.set(u.id, {
+                    id: u.id,
+                    name: u.name || 'Friend',
+                    earned: earned,
+                    commissionEarned: Number(((earned * refPct) / 100).toFixed(2)),
+                    tasksCompleted: 0,
+                    primeTasksCompleted: 0,
+                    qualified: earned > 0,
+                    status: earned > 0 ? 'Qualified' : 'Pending'
+                });
+            });
+
+            directReferralsList.forEach((r) => {
+                const uid = String(r.referredUserId || r.id);
+                const earned = Number(r.friendTotalEarned ?? r.earned ?? 0);
+                merged.set(uid, {
+                    id: uid,
+                    name: r.referredUserName || r.name || 'Friend',
+                    earned: earned,
+                    commissionEarned: r.commissionEarned !== undefined
+                        ? Number(r.commissionEarned)
+                        : Number(((earned * refPct) / 100).toFixed(2)),
+                    tasksCompleted: Number(r.tasksCompleted || 0),
+                    primeTasksCompleted: Number(r.primeTasksCompleted || 0),
+                    qualified: r.qualified === true || r.status === 'Qualified',
+                    status: r.status || (r.qualified ? 'Qualified' : 'Pending')
+                });
+            });
+
+            referralsData = Array.from(merged.values());
+            renderReferrals();
+        }
+
         // ==================== FIRESTORE USER INITIALIZATION & LISTENERS ====================
         async function ensureUserDocument() {
             const userRef = db.collection('users').doc(currentUserId);
@@ -915,20 +1065,28 @@
                     if (startParamRef && startParamRef !== currentUserId) {
                         const uplinerRef = db.collection('users').doc(startParamRef);
                         const uplinerSnap = await uplinerRef.get();
-                        if (uplinerSnap.exists) {
-                            newUserDoc.referrerId = startParamRef;
-                            newUserDoc.referrer = uplinerSnap.data().name || startParamRef;
-                            await uplinerRef.update({
-                                referralsCount: FieldValue.increment(1)
-                            });
-                        }
+                        newUserDoc.referrerId = startParamRef;
+                        newUserDoc.referrer = uplinerSnap.exists ? (uplinerSnap.data().name || startParamRef) : startParamRef;
+                        await createAdminReferralRecord(startParamRef, true);
                     }
                     await userRef.set(newUserDoc);
                 } else {
+                    const existing = snap.data() || {};
                     await userRef.update({
                         name: currentUserName,
                         handle: currentUserHandle
                     });
+
+                    if (!existing.referrerId && startParamRef && startParamRef !== currentUserId) {
+                        const uplinerSnap = await db.collection('users').doc(startParamRef).get();
+                        await userRef.update({
+                            referrerId: startParamRef,
+                            referrer: uplinerSnap.exists ? (uplinerSnap.data().name || startParamRef) : startParamRef
+                        });
+                        await createAdminReferralRecord(startParamRef, true);
+                    } else if (existing.referrerId) {
+                        await createAdminReferralRecord(existing.referrerId, false);
+                    }
                 }
             } catch (err) {
                 console.warn('Firestore user init note:', err.message);
@@ -999,10 +1157,12 @@
                 renderMyOffers();
             });
 
-            // 5. User Submissions ('submissions' collection) for live status sync
+            // 5. User Submissions ('submissions' collection) for live status sync & referral qualification
             db.collection('submissions').where('userId', '==', currentUserId).onSnapshot((snap) => {
+                const subDocs = [];
                 snap.docs.forEach((d) => {
                     const data = d.data();
+                    subDocs.push(data);
                     if (data.taskId) {
                         const existing = userTaskStatuses[data.taskId] || {};
                         let mappedStatus = existing.status || 'submitted';
@@ -1019,6 +1179,7 @@
                 });
                 renderTasks();
                 renderMyOffers();
+                syncReferralProgressToAdmin(subDocs);
             });
 
             // 6. Live Transactions Ledger (Earnings + Withdrawals)
@@ -1068,9 +1229,18 @@
                 rebuildTransactions();
             });
 
-            // 7. Live Referrals List
+            // 7. Live Dedicated 'referrals' Collection (Shared directly with Admin Panel)
+            db.collection('referrals').where('referrerId', '==', currentUserId).onSnapshot((snap) => {
+                directReferralsList = snap.docs.map((d) => ({
+                    id: d.id,
+                    ...d.data()
+                }));
+                mergeReferralSources();
+            });
+
+            // 8. Legacy 'users' Referral Fallback
             db.collection('users').where('referrerId', '==', currentUserId).onSnapshot((snap) => {
-                referralsData = snap.docs.map((d) => {
+                legacyReferralsList = snap.docs.map((d) => {
                     const data = d.data();
                     return {
                         id: d.id,
@@ -1078,7 +1248,7 @@
                         earned: Number(data.earned || 0)
                     };
                 });
-                renderReferrals();
+                mergeReferralSources();
             });
         }
 
@@ -1107,7 +1277,7 @@
             if (invRule) invRule.innerText = `${refPct}% commission`;
 
             const refStatLabel = document.getElementById('refStatPctLabel');
-            if (refStatLabel) refStatLabel.innerText = `${refPct}% Commission`;
+            if (refStatLabel) refStatLabel.innerText = `${refPct}% Comm.`;
 
             const chLink = document.getElementById('profileChannelLink');
             if (chLink && appSettings.telegramChannel) chLink.href = appSettings.telegramChannel;
@@ -1130,13 +1300,6 @@
             if (walletBal) walletBal.innerText = `₹${bal.toFixed(2)}`;
             if (profEarned) profEarned.innerText = `₹${earned.toFixed(2)}`;
             if (profWithdrawn) profWithdrawn.innerText = `₹${withdrawn.toFixed(2)}`;
-
-            if (userProfile.mobile) {
-                const upiInp = document.getElementById('upiIdInput');
-                if (upiInp && !upiInp.value) {
-                    // keep clean placeholder
-                }
-            }
         }
 
         window.onload = async function() {
@@ -1451,7 +1614,6 @@
                 return;
             }
 
-            // Save 'started' status to Firestore so it persists in My Offers -> Ongoing
             userTaskStatuses[task.id] = {
                 userId: currentUserId,
                 offerId: task.id,
@@ -1522,7 +1684,6 @@
             const nowStr = formatNowDate();
 
             try {
-                // 1. Write submission to 'submissions' collection -> Appears immediately in Admin Panel Proofs tab
                 await db.collection('submissions').add({
                     userId: currentUserId,
                     userName: currentUserName,
@@ -1540,14 +1701,12 @@
                     createdAt: FieldValue.serverTimestamp()
                 });
 
-                // 2. Update userTasks status to 'submitted'
                 await db.collection('userTasks').doc(`${currentUserId}_${task.id}`).set({
                     userId: currentUserId,
                     offerId: task.id,
                     status: 'submitted'
                 }, { merge: true });
 
-                // 3. Save user's registered mobile on profile
                 await db.collection('users').doc(currentUserId).set({
                     mobile: mobile
                 }, { merge: true });
@@ -1563,7 +1722,7 @@
             }
         }
 
-        // Wallet Tab Switching
+                // Wallet Tab Switching
         function switchWalletTab(tab) {
             currentWalletTab = tab;
             const earningsBtn = document.getElementById('walletTab-earnings');
