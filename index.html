@@ -965,10 +965,11 @@
                             desc: data.subtitle || data.desc || 'Complete task to earn',
                             category: normCat,
                             tag: isKyc ? 'PRIME' : 'NON-KYC',
-                            reward: Number(data.reward || 0),
+                            reward: Number(data.reward || data.payout || 0),
                             link: data.url || data.link || '#',
                             logo: data.logo || '',
                             active: data.active !== false,
+                            requireProof: Boolean(data.requireProof || data.proofRequired || data.isProofRequired),
                             icon: isKyc ? 'fa-shield-halved' : 'fa-bolt',
                             color: isKyc ? 'from-emerald-500 to-teal-600' : 'from-indigo-500 to-purple-600',
                             conditions: Array.isArray(data.steps) && data.steps.length
@@ -1291,21 +1292,53 @@
 
             if (currentMyOffersTab === 'ongoing') {
                 container.innerHTML = filtered.map(task => {
-                    return `
-                        <div onclick="closeMyOffersScreen(); openTaskDetail('${task.id}')" class="bg-white border border-slate-200/80 p-4 rounded-3xl shadow-sm flex items-center justify-between cursor-pointer hover:border-emerald-500/50 transition">
-                            <div class="flex items-center space-x-3.5 min-w-0 pr-2">
-                                ${renderOfferAvatar(task, 'w-12 h-12 rounded-2xl text-base')}
-                                <div class="space-y-1 min-w-0">
-                                    <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${escapeHtml(task.tag)}</span>
-                                    <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(task.title)}</h4>
-                                    <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
-                                </div>
-                            </div>
-                            <div class="shrink-0 text-right">
-                                <span class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-sm block">
-                                    +₹${task.reward}
+                    const isSubmitted = task.status === 'submitted';
+                    const showProofForm = task.requireProof && !isSubmitted;
+                    const proofSectionHtml = isSubmitted
+                        ? `
+                            <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                                <span class="text-amber-700 font-bold flex items-center space-x-1.5">
+                                    <i class="fa-solid fa-clock"></i>
+                                    <span>Proof submitted • Under admin review</span>
                                 </span>
                             </div>
+                        `
+                        : (showProofForm
+                            ? `
+                                <div onclick="event.stopPropagation()" class="pt-3 border-t border-slate-100 space-y-2.5">
+                                    <input id="mobile_${task.id}" type="tel" value="${escapeHtml(userProfile.mobile || '')}" placeholder="Enter registered mobile number *" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 transition">
+                                    <div class="flex items-center gap-2">
+                                        <label for="proofFile_${task.id}" class="flex-1 min-w-0 flex items-center justify-center space-x-2 border border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/70 rounded-2xl px-3 py-3 cursor-pointer transition">
+                                            <i class="fa-solid fa-camera text-emerald-600 text-xs shrink-0"></i>
+                                            <span id="proofFileLabel_${task.id}" class="text-xs font-bold text-slate-700 truncate">Upload Screenshot</span>
+                                            <input id="proofFile_${task.id}" type="file" accept="image/*" onchange="handleOfferProofFile(event, '${task.id}')" class="hidden">
+                                        </label>
+                                        <button id="submitBtn_${task.id}" type="button" onclick="submitTaskProof('${task.id}')" class="bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black text-xs px-4 py-3 rounded-2xl shadow-sm shrink-0 transition">
+                                            Submit Proof
+                                        </button>
+                                    </div>
+                                </div>
+                            `
+                            : '');
+
+                    return `
+                        <div onclick="closeMyOffersScreen(); openTaskDetail('${task.id}')" class="bg-white border border-slate-200/80 p-4 rounded-3xl shadow-sm space-y-3 cursor-pointer hover:border-emerald-500/50 transition">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-3.5 min-w-0 pr-2">
+                                    ${renderOfferAvatar(task, 'w-12 h-12 rounded-2xl text-base')}
+                                    <div class="space-y-1 min-w-0">
+                                        <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${escapeHtml(task.tag)}</span>
+                                        <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(task.title)}</h4>
+                                        <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
+                                    </div>
+                                </div>
+                                <div class="shrink-0 text-right">
+                                    <span class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-sm block">
+                                        +₹${task.reward}
+                                    </span>
+                                </div>
+                            </div>
+                            ${proofSectionHtml}
                         </div>
                     `;
                 }).join('');
@@ -1383,7 +1416,7 @@
             } else if (task.status === 'started') {
                 statusBadge.className = 'text-[10px] font-black bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full';
                 statusBadge.innerText = 'Ongoing';
-                startBtn.innerHTML = `<span>CONTINUE &amp; SUBMIT PROOF</span><i class="fa-solid fa-arrow-right"></i>`;
+                startBtn.innerHTML = `<span>START NOW</span><i class="fa-solid fa-arrow-right"></i>`;
             } else {
                 statusBadge.className = 'text-[10px] font-black bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full';
                 statusBadge.innerText = 'Available';
@@ -1664,7 +1697,7 @@
                         <div class="flex-1 min-w-0 space-y-1">
                             <div class="flex items-center justify-between gap-2">
                                 <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(tx.title)}</h4>
-                                <span class="text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0 ${statusStyle}">${escapeHtml(tx.status)}</span>
+                                                <span class="text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0 ${statusStyle}">${escapeHtml(tx.status)}</span>
                             </div>
                             <div class="flex items-center space-x-1.5">
                                 <span class="text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${badgeStyle}">${escapeHtml(tx.badge)}</span>
@@ -1851,7 +1884,6 @@
             const minWd = Number(appSettings.minWithdrawal || 50);
             const currentBal = Number(userProfile.balance || 0);
 
-            // Reset error states
             const upiInput = document.getElementById('upiIdInput');
             const upiError = document.getElementById('upiErrorMsg');
             if (upiInput) upiInput.classList.remove('border-rose-500', 'bg-rose-50');
@@ -1924,12 +1956,10 @@
             const nowStr = formatNowDate();
 
             try {
-                // 1. Deduct amount from user's Firestore wallet balance
                 await db.collection('users').doc(currentUserId).set({
                     balance: FieldValue.increment(-amount)
                 }, { merge: true });
 
-                // 2. Write withdrawal request to 'withdrawals' collection -> Appears immediately in Admin Panel Payouts tab
                 await db.collection('withdrawals').add({
                     userId: currentUserId,
                     userName: currentUserName,
@@ -2036,7 +2066,6 @@
             }
 
             try {
-                // Write ticket to 'tickets' collection -> Appears immediately in Admin Panel Tickets tab
                 await db.collection('tickets').add({
                     userId: currentUserId,
                     userName: currentUserName,
