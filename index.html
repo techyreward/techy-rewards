@@ -125,7 +125,7 @@
         </div>
     </div>
 
-    <!-- FULL PAGE MY OFFERS SCREEN (ONGOING, COMPLETED, EXPIRED) -->
+    <!-- FULL PAGE MY OFFERS SCREEN (ONGOING, COMPLETED, REJECTED) -->
     <div id="myOffersScreen" class="fixed inset-0 bg-[#f8fafc] z-50 hidden overflow-y-auto p-4 pb-10">
         <div class="max-w-md mx-auto w-full space-y-5">
             <!-- Top Back Bar -->
@@ -137,7 +137,7 @@
                 <div class="w-9"></div>
             </div>
 
-            <!-- 3 Sections Toggle: Ongoing, Completed, Expired -->
+            <!-- 3 Sections Toggle: Ongoing, Completed, Rejected -->
             <div class="grid grid-cols-3 gap-1.5 bg-slate-200/80 p-1.5 rounded-2xl border border-slate-300/60">
                 <button onclick="switchMyOffersTab('ongoing')" id="myOfferTab-ongoing" class="py-2 text-xs font-black rounded-xl bg-white text-slate-900 shadow-sm transition">
                     Ongoing
@@ -145,8 +145,8 @@
                 <button onclick="switchMyOffersTab('completed')" id="myOfferTab-completed" class="py-2 text-xs font-black rounded-xl text-slate-600 hover:text-slate-900 transition">
                     Completed
                 </button>
-                <button onclick="switchMyOffersTab('expired')" id="myOfferTab-expired" class="py-2 text-xs font-black rounded-xl text-slate-600 hover:text-slate-900 transition">
-                    Expired
+                <button onclick="switchMyOffersTab('rejected')" id="myOfferTab-rejected" class="py-2 text-xs font-black rounded-xl text-slate-600 hover:text-slate-900 transition">
+                    Rejected
                 </button>
             </div>
 
@@ -1167,7 +1167,7 @@
                         const existing = userTaskStatuses[data.taskId] || {};
                         let mappedStatus = existing.status || 'submitted';
                         if (data.status === 'Approved') mappedStatus = 'completed';
-                        else if (data.status === 'Rejected') mappedStatus = 'expired';
+                        else if (data.status === 'Rejected') mappedStatus = 'rejected';
                         else if (data.status === 'Pending') mappedStatus = 'submitted';
 
                         userTaskStatuses[data.taskId] = {
@@ -1413,7 +1413,7 @@
 
         function switchMyOffersTab(tab) {
             currentMyOffersTab = tab;
-            ['ongoing', 'completed', 'expired'].forEach(t => {
+            ['ongoing', 'completed', 'rejected'].forEach(t => {
                 const btn = document.getElementById(`myOfferTab-${t}`);
                 if (btn) {
                     btn.className = t === tab
@@ -1444,8 +1444,8 @@
                 filtered = merged.filter(t => t.status === 'started' || t.status === 'submitted');
             } else if (currentMyOffersTab === 'completed') {
                 filtered = merged.filter(t => t.status === 'completed');
-            } else if (currentMyOffersTab === 'expired') {
-                filtered = merged.filter(t => t.status === 'expired');
+            } else if (currentMyOffersTab === 'rejected') {
+                filtered = merged.filter(t => t.status === 'rejected' || t.status === 'expired');
             }
 
             if (filtered.length === 0) {
@@ -1521,7 +1521,7 @@
                         </div>
                     </div>
                 `).join('');
-            } else if (currentMyOffersTab === 'expired') {
+            } else if (currentMyOffersTab === 'rejected') {
                 container.innerHTML = filtered.map(task => `
                     <div class="bg-white/95 border border-slate-200/90 rounded-3xl p-4 flex items-center justify-between opacity-90 select-none shadow-sm">
                         <div class="flex items-center space-x-3.5 min-w-0 pr-2">
@@ -1550,6 +1550,7 @@
             const merged = getMergedTasks();
             const task = merged.find(t => t.id === taskId);
             if (!task) return;
+            if (task.status === 'rejected' || task.status === 'expired') return;
 
             selectedTaskId = taskId;
 
@@ -1568,6 +1569,16 @@
 
             const statusBadge = document.getElementById('detailTaskStatusBadge');
             const startBtn = document.getElementById('detailStartBtn');
+            if (task.status === 'rejected' || task.status === 'expired') {
+                statusBadge.className = 'text-[10px] font-black bg-rose-100 text-rose-800 px-2.5 py-0.5 rounded-full';
+                statusBadge.innerText = 'Rejected';
+                startBtn.disabled = true;
+                startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                startBtn.innerHTML = `<span>REJECTED</span><i class="fa-solid fa-lock"></i>`;
+            } else {
+                startBtn.disabled = false;
+                startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
             if (task.status === 'completed') {
                 statusBadge.className = 'text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full';
                 statusBadge.innerText = 'Completed';
@@ -1607,6 +1618,10 @@
             const merged = getMergedTasks();
             const task = merged.find(t => t.id === selectedTaskId);
             if (!task) return;
+            if (task.status === 'rejected' || task.status === 'expired') {
+                closeTaskDetail();
+                return;
+            }
 
             if (task.status === 'submitted' || task.status === 'completed') {
                 closeTaskDetail();
