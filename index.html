@@ -914,6 +914,9 @@
 
         let liveOffers = [];
         let userTaskStatuses = {};
+        // Submission decisions are tracked separately so a userTasks snapshot cannot
+        // overwrite a newer Approved/Rejected decision while listeners load.
+        let submissionTaskStatuses = {};
         let transactionsData = [];
         let referralsData = [];
         let directReferralsList = [];
@@ -1255,6 +1258,8 @@
                             logo: data.logo || '',
                             active: data.active !== false,
                             requireProof: Boolean(data.requireProof || data.proofRequired || data.isProofRequired),
+                            collectMobile: Boolean(data.collectMobile),
+                            allowProofSubmission: Boolean(data.allowProofSubmission),
                             icon: isKyc ? 'fa-shield-halved' : 'fa-bolt',
                             color: isKyc ? 'from-emerald-500 to-teal-600' : 'from-indigo-500 to-purple-600',
                             conditions: Array.isArray(data.steps) && data.steps.length
@@ -1285,29 +1290,36 @@
 
             db.collection('submissions').where('userId', '==', activeAccountId).onSnapshot((snap) => {
                 const subDocs = [];
-                snap.docs.forEach((d) => {
+                const latestByTask = {};
+                // Sort by creation time so the newest admin decision wins if a user
+                // has more than one submission record for the same offer.
+                const orderedDocs = [...snap.docs].sort((a, b) => {
+                    const at = a.data().createdAt?.seconds || 0;
+                    const bt = b.data().createdAt?.seconds || 0;
+                    return at - bt;
+                });
+                orderedDocs.forEach((d) => {
                     const data = d.data();
                     subDocs.push(data);
-                    if (data.taskId) {
-                        const existing = userTaskStatuses[data.taskId] || {};
-                        let mappedStatus = existing.status || 'submitted';
-                        if (data.status === 'Approved') mappedStatus = 'completed';
-                        else if (data.status === 'Rejected') mappedStatus = 'rejected';
-                        else if (data.status === 'Pending') mappedStatus = 'submitted';
+                    if (!data.taskId) return;
 
-                        userTaskStatuses[data.taskId] = {
-                            ...existing,
-                            status: mappedStatus,
-                            rejectReason: data.rejectReason || existing.rejectReason || '',
-                            offerSnapshot: existing.offerSnapshot || data.offerSnapshot || (data.taskName ? {
-                                title: data.taskName, desc: 'Previously started offer', category: data.category || 'kyc',
-                                tag: (data.category || 'kyc') === 'kyc' ? 'PRIME' : 'NON-KYC',
-                                reward: Number(data.reward || 0), link: '#', logo: '', requireProof: true,
-                                icon: 'fa-gift', color: 'from-emerald-500 to-teal-600', conditions: []
-                            } : null)
-                        };
-                    }
+                    let mappedStatus = 'submitted';
+                    if (data.status === 'Approved') mappedStatus = 'completed';
+                    else if (data.status === 'Rejected') mappedStatus = 'rejected';
+                    else if (data.status === 'Pending') mappedStatus = 'submitted';
+
+                    latestByTask[data.taskId] = {
+                        status: mappedStatus,
+                        rejectReason: data.rejectReason || '',
+                        offerSnapshot: data.offerSnapshot || (data.taskName ? {
+                            title: data.taskName, desc: 'Previously started offer', category: data.category || 'kyc',
+                            tag: (data.category || 'kyc') === 'kyc' ? 'PRIME' : 'NON-KYC',
+                            reward: Number(data.reward || 0), link: '#', logo: '', requireProof: true,
+                            icon: 'fa-gift', color: 'from-emerald-500 to-teal-600', conditions: []
+                        } : null)
+                    };
                 });
+                submissionTaskStatuses = latestByTask;
                 renderTasks();
                 renderMyOffers();
                 syncReferralProgressToAdmin(subDocs);
@@ -1390,13 +1402,18 @@
                 }
             });
             return Array.from(byId.values()).map((offer) => {
-                const ut = userTaskStatuses[offer.id];
-                const status = ut ? ut.status : 'available';
+                // A moderation decision from submissions takes precedence over the
+                // basic started/submitted state stored in userTasks.
+                const baseTask = userTaskStatuses[offer.id] || {};
+                const decision = submissionTaskStatuses[offer.id] || {};
+                const ut = { ...baseTask, ...decision };
+                const status = ut.status || 'available';
                 return {
                     ...offer,
                     status,
-                    rejectReason: ut ? ut.rejectReason : '',
-                    // Started offers are hidden from Active Offers for this user only.
+                    rejectReason: ut.rejectReason || '',
+                    // Started offers stay in My Offers even if the admin deletes the
+                    // public offer document. Only available offers appear publicly.
                     hiddenFromActive: status !== 'available' && adminFeatureEnabled('autoRemoveStartedOffers', 'autoRemoveStartedOffers', false)
                 };
             });
@@ -1459,6 +1476,11 @@
             renderReferrals();
             renderWalletTransactions();
             renderEarningHistory();
+            const savedTab = localStorage.getItem(LAST_NAV_TAB_KEY) || 'home';
+            switchTab(['home', 'invite', 'wallet', 'profile'].includes(savedTab) ? savedTab : 'home');
+            if (localStorage.getItem(MY_OFFERS_OPEN_KEY) === '1') {
+                openMyOffersScreen();
+            }
             await resolveAndBindDeviceAccount();
             startFirestoreSync();
         };
@@ -1548,13 +1570,18 @@
             }
         }
 
+        const LAST_NAV_TAB_KEY = 'techy_last_nav_tab';
+        const MY_OFFERS_OPEN_KEY = 'techy_my_offers_open';
+
         function openMyOffersScreen() {
             renderMyOffers();
             document.getElementById('myOffersScreen').classList.remove('hidden');
+            localStorage.setItem(MY_OFFERS_OPEN_KEY, '1');
         }
 
         function closeMyOffersScreen() {
             document.getElementById('myOffersScreen').classList.add('hidden');
+            localStorage.setItem(MY_OFFERS_OPEN_KEY, '0');
         }
 
         function switchMyOffersTab(tab) {
@@ -1602,9 +1629,13 @@
             if (currentMyOffersTab === 'ongoing') {
                 container.innerHTML = filtered.map(task => {
                     const isSubmitted = task.status === 'submitted';
-                    const proofAllowed = adminFeatureEnabled('allowProofSubmission', 'enableProofSubmission', false);
-                    const mobileAllowed = adminFeatureEnabled('allowMobileNumber', 'enableMobileNumber', false);
-                    const showProofForm = task.requireProof && proofAllowed && !isSubmitted;
+                    const proofMasterEnabled = adminFeatureEnabled('allowProofSubmission', 'enableProofSubmission', false);
+                    const mobileMasterEnabled = adminFeatureEnabled('allowMobileNumber', 'enableMobileNumber', false);
+                    // Per-offer options are saved by the admin panel. Fall back to the old
+                    // requireProof behavior for older offers that do not have these fields.
+                    const proofAllowed = proofMasterEnabled && (task.allowProofSubmission === true || task.requireProof);
+                    const mobileAllowed = mobileMasterEnabled && (task.collectMobile === true || (task.collectMobile == null && task.requireProof));
+                    const showProofForm = (proofAllowed || mobileAllowed) && !isSubmitted;
                     const proofSectionHtml = isSubmitted
                         ? `
                             <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
@@ -1617,17 +1648,9 @@
                         : (showProofForm
                             ? `
                                 <div onclick="event.stopPropagation()" class="pt-3 border-t border-slate-100 space-y-2.5">
-                                    ${mobileAllowed ? `<input id="mobile_${task.id}" type="tel" inputmode="numeric" value="${escapeHtml(userProfile.mobile || '')}" placeholder="Enter registered mobile number *" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 transition">` : ''}
-                                    <div class="flex items-center gap-2">
-                                        <label for="proofFile_${task.id}" class="flex-1 min-w-0 flex items-center justify-center space-x-2 border border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/70 rounded-2xl px-3 py-3 cursor-pointer transition">
-                                            <i class="fa-solid fa-camera text-emerald-600 text-xs shrink-0"></i>
-                                            <span id="proofFileLabel_${task.id}" class="text-xs font-bold text-slate-700 truncate">Upload Screenshot</span>
-                                            <input id="proofFile_${task.id}" type="file" accept="image/*" onchange="handleOfferProofFile(event, '${task.id}')" class="hidden">
-                                        </label>
-                                        <button id="submitBtn_${task.id}" type="button" onclick="submitTaskProof('${task.id}')" class="bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black text-xs px-4 py-3 rounded-2xl shadow-sm shrink-0 transition">
-                                            Submit Proof
-                                        </button>
-                                    </div>
+                                    ${mobileAllowed ? `<input id="mobile_${task.id}" type="tel" inputmode="numeric" value="${escapeHtml(userProfile.mobile || '')}" placeholder="Mobile number (optional)" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 transition">` : ''}
+                                    ${proofAllowed ? `<label for="proofFile_${task.id}" class="flex w-full min-w-0 items-center justify-center space-x-2 border border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/70 rounded-2xl px-3 py-3 cursor-pointer transition"><i class="fa-solid fa-camera text-emerald-600 text-xs shrink-0"></i><span id="proofFileLabel_${task.id}" class="text-xs font-bold text-slate-700 truncate">Upload Screenshot (optional)</span><input id="proofFile_${task.id}" type="file" accept="image/*" onchange="handleOfferProofFile(event, '${task.id}')" class="hidden"></label>` : ''}
+                                    <button id="submitBtn_${task.id}" type="button" onclick="submitTaskProof('${task.id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black text-xs px-4 py-3 rounded-2xl shadow-sm transition">Submit Details</button>
                                 </div>
                             `
                             : '');
@@ -1783,7 +1806,7 @@
                 offerSnapshot: {
                     title: task.title, desc: task.desc, category: task.category, tag: task.tag,
                     reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
-                    requireProof: Boolean(task.requireProof), icon: task.icon, color: task.color,
+                    requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color,
                     conditions: Array.isArray(task.conditions) ? task.conditions : []
                 }
             };
@@ -1798,7 +1821,7 @@
                     offerSnapshot: {
                         title: task.title, desc: task.desc, category: task.category, tag: task.tag,
                         reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
-                        requireProof: Boolean(task.requireProof), icon: task.icon, color: task.color,
+                        requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color,
                         conditions: Array.isArray(task.conditions) ? task.conditions : []
                     },
                     startedAt: FieldValue.serverTimestamp()
@@ -1837,22 +1860,20 @@
             const fileInput = document.getElementById(`proofFile_${taskId}`);
             const submitBtn = document.getElementById(`submitBtn_${taskId}`);
 
-            const mobileAllowed = adminFeatureEnabled('allowMobileNumber', 'enableMobileNumber', false);
-            const proofAllowed = adminFeatureEnabled('allowProofSubmission', 'enableProofSubmission', false);
+            const proofMasterEnabled = adminFeatureEnabled('allowProofSubmission', 'enableProofSubmission', false);
+            const mobileMasterEnabled = adminFeatureEnabled('allowMobileNumber', 'enableMobileNumber', false);
+            const proofAllowed = proofMasterEnabled && (task.allowProofSubmission === true || task.requireProof);
+            const mobileAllowed = mobileMasterEnabled && (task.collectMobile === true || (task.collectMobile == null && task.requireProof));
             const mobile = mobileInput ? mobileInput.value.trim() : '';
             const proofNote = proofInput ? proofInput.value.trim() : '';
 
-            if (!proofAllowed) return;
-            if (mobileAllowed && !mobile) {
+            if (!proofAllowed && !mobileAllowed) return;
+            if (mobileAllowed && mobile && !/^\\+?[0-9]{8,15}$/.test(mobile.replace(/[\\s-]/g, ''))) {
                 triggerInputAlert(`mobile_${taskId}`);
                 return;
             }
-            if (mobileAllowed && !/^\\+?[0-9]{8,15}$/.test(mobile.replace(/[\\s-]/g, ''))) {
-                triggerInputAlert(`mobile_${taskId}`);
-                return;
-            }
-            if (!fileInput || !fileInput.files || !fileInput.files[0]) {
-                alert('Please upload your screenshot proof before submitting.');
+            if (task.requireProof && proofAllowed && (!fileInput || !fileInput.files || !fileInput.files[0])) {
+                alert('Please upload the required screenshot proof before submitting.');
                 return;
             }
 
@@ -1882,7 +1903,7 @@
                     offerSnapshot: {
                         title: task.title, desc: task.desc, category: task.category, tag: task.tag,
                         reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
-                        requireProof: Boolean(task.requireProof), icon: task.icon, color: task.color,
+                        requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color,
                         conditions: Array.isArray(task.conditions) ? task.conditions : []
                     },
                     category: task.category,
@@ -1902,11 +1923,15 @@
                     status: 'submitted'
                 }, { merge: true });
 
-                if (mobileAllowed) {
+                if (mobileAllowed && mobile) {
                     await db.collection('users').doc(activeAccountId).set({ mobile: mobile }, { merge: true });
                 }
 
-                userTaskStatuses[task.id] = { status: 'submitted' };
+                userTaskStatuses[task.id] = {
+                    ...(userTaskStatuses[task.id] || {}),
+                    status: 'submitted',
+                    offerSnapshot: { title: task.title, desc: task.desc, category: task.category, tag: task.tag, reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '', requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color, conditions: Array.isArray(task.conditions) ? task.conditions : [] }
+                };
                 renderMyOffers();
             } catch (err) {
                 console.error('Submit proof error:', err);
@@ -2189,9 +2214,13 @@
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.replace('text-emerald-600', 'text-slate-400'));
-            
-            document.getElementById(`tab-${tab}`).classList.remove('hidden');
-            document.getElementById(`nav-${tab}`).classList.replace('text-slate-400', 'text-emerald-600');
+            const tabEl = document.getElementById(`tab-${tab}`);
+            const navEl = document.getElementById(`nav-${tab}`);
+            if (tabEl && navEl) {
+                tabEl.classList.remove('hidden');
+                navEl.classList.replace('text-slate-400', 'text-emerald-600');
+                localStorage.setItem(LAST_NAV_TAB_KEY, tab);
+            }
         }
 
         function copyRefLink() {
