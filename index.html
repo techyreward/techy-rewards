@@ -895,7 +895,11 @@
             minWithdrawal: 50,
             referralPercent: 50,
             telegramChannel: 'https://t.me/techyrewards',
-            supportLink: 'https://t.me/techyrewardsbot'
+            supportLink: 'https://t.me/techyrewardsbot',
+            allowPrimeBadge: false,
+            allowMobileNumber: false,
+            allowProofSubmission: false,
+            autoRemoveStartedOffers: false
         };
 
         let userProfile = {
@@ -1294,7 +1298,13 @@
                         userTaskStatuses[data.taskId] = {
                             ...existing,
                             status: mappedStatus,
-                            rejectReason: data.rejectReason || existing.rejectReason || ''
+                            rejectReason: data.rejectReason || existing.rejectReason || '',
+                            offerSnapshot: existing.offerSnapshot || data.offerSnapshot || (data.taskName ? {
+                                title: data.taskName, desc: 'Previously started offer', category: data.category || 'kyc',
+                                tag: (data.category || 'kyc') === 'kyc' ? 'PRIME' : 'NON-KYC',
+                                reward: Number(data.reward || 0), link: '#', logo: '', requireProof: true,
+                                icon: 'fa-gift', color: 'from-emerald-500 to-teal-600', conditions: []
+                            } : null)
                         };
                     }
                 });
@@ -1371,14 +1381,31 @@
         }
 
         function getMergedTasks() {
-            return liveOffers.map((offer) => {
+            const byId = new Map(liveOffers.map(offer => [offer.id, offer]));
+            // Retain started/submitted/completed/rejected tasks even if admin removes the
+            // corresponding document from the public offers collection.
+            Object.entries(userTaskStatuses).forEach(([offerId, ut]) => {
+                if (!byId.has(offerId) && ut && ut.offerSnapshot) {
+                    byId.set(offerId, { id: offerId, ...ut.offerSnapshot, active: false });
+                }
+            });
+            return Array.from(byId.values()).map((offer) => {
                 const ut = userTaskStatuses[offer.id];
+                const status = ut ? ut.status : 'available';
                 return {
                     ...offer,
-                    status: ut ? ut.status : 'available',
-                    rejectReason: ut ? ut.rejectReason : ''
+                    status,
+                    rejectReason: ut ? ut.rejectReason : '',
+                    // Started offers are hidden from Active Offers for this user only.
+                    hiddenFromActive: status !== 'available' && adminFeatureEnabled('autoRemoveStartedOffers', 'autoRemoveStartedOffers', false)
                 };
             });
+        }
+
+        function adminFeatureEnabled(key, legacyKey, fallback = true) {
+            if (Object.prototype.hasOwnProperty.call(appSettings, key)) return appSettings[key] !== false;
+            if (legacyKey && Object.prototype.hasOwnProperty.call(appSettings, legacyKey)) return appSettings[legacyKey] !== false;
+            return fallback;
         }
 
         function applyAppSettingsUI() {
@@ -1481,7 +1508,11 @@
             if (!activeContainer) return;
 
             const merged = getMergedTasks();
-            const availableTasks = merged.filter(t => t.status === 'available' && t.category === currentOfferCategoryFilter);
+            const autoRemoveStarted = adminFeatureEnabled('autoRemoveStartedOffers', 'autoRemoveStartedOffers', false);
+            const availableTasks = merged.filter(t =>
+                (t.status === 'available' || (!autoRemoveStarted && t.status === 'started')) &&
+                t.active !== false && t.category === currentOfferCategoryFilter
+            );
 
             const myOffersCount = merged.filter(t => t.status !== 'available').length;
             const badgeEl = document.getElementById('myOffersCountBadge');
@@ -1502,7 +1533,7 @@
                         <div class="flex items-center space-x-3.5 min-w-0 pr-2">
                             ${renderOfferAvatar(task)}
                             <div class="space-y-1 min-w-0">
-                                <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${escapeHtml(task.tag)}</span>
+                                ${adminFeatureEnabled('allowPrimeBadge', 'showPrimeBadge', false) ? `<span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${escapeHtml(task.tag)}</span>` : ''}
                                 <h4 class="font-black text-slate-900 text-sm tracking-wide group-hover:text-emerald-600 transition-colors truncate">${escapeHtml(task.title)}</h4>
                                 <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
                             </div>
@@ -1571,7 +1602,9 @@
             if (currentMyOffersTab === 'ongoing') {
                 container.innerHTML = filtered.map(task => {
                     const isSubmitted = task.status === 'submitted';
-                    const showProofForm = task.requireProof && !isSubmitted;
+                    const proofAllowed = adminFeatureEnabled('allowProofSubmission', 'enableProofSubmission', false);
+                    const mobileAllowed = adminFeatureEnabled('allowMobileNumber', 'enableMobileNumber', false);
+                    const showProofForm = task.requireProof && proofAllowed && !isSubmitted;
                     const proofSectionHtml = isSubmitted
                         ? `
                             <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
@@ -1584,7 +1617,7 @@
                         : (showProofForm
                             ? `
                                 <div onclick="event.stopPropagation()" class="pt-3 border-t border-slate-100 space-y-2.5">
-                                    <input id="mobile_${task.id}" type="tel" value="${escapeHtml(userProfile.mobile || '')}" placeholder="Enter registered mobile number *" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 transition">
+                                    ${mobileAllowed ? `<input id="mobile_${task.id}" type="tel" inputmode="numeric" value="${escapeHtml(userProfile.mobile || '')}" placeholder="Enter registered mobile number *" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 transition">` : ''}
                                     <div class="flex items-center gap-2">
                                         <label for="proofFile_${task.id}" class="flex-1 min-w-0 flex items-center justify-center space-x-2 border border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/70 rounded-2xl px-3 py-3 cursor-pointer transition">
                                             <i class="fa-solid fa-camera text-emerald-600 text-xs shrink-0"></i>
@@ -1605,7 +1638,7 @@
                                 <div class="flex items-center space-x-3.5 min-w-0 pr-2">
                                     ${renderOfferAvatar(task, 'w-12 h-12 rounded-2xl text-base')}
                                     <div class="space-y-1 min-w-0">
-                                        <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${escapeHtml(task.tag)}</span>
+                                        ${adminFeatureEnabled('allowPrimeBadge', 'showPrimeBadge', false) ? `<span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${escapeHtml(task.tag)}</span>` : ''}
                                         <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(task.title)}</h4>
                                         <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
                                     </div>
@@ -1746,7 +1779,13 @@
             userTaskStatuses[task.id] = {
                 userId: activeAccountId,
                 offerId: task.id,
-                status: 'started'
+                status: 'started',
+                offerSnapshot: {
+                    title: task.title, desc: task.desc, category: task.category, tag: task.tag,
+                    reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
+                    requireProof: Boolean(task.requireProof), icon: task.icon, color: task.color,
+                    conditions: Array.isArray(task.conditions) ? task.conditions : []
+                }
             };
 
             try {
@@ -1756,6 +1795,12 @@
                     deviceId: currentDeviceId,
                     offerId: task.id,
                     status: 'started',
+                    offerSnapshot: {
+                        title: task.title, desc: task.desc, category: task.category, tag: task.tag,
+                        reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
+                        requireProof: Boolean(task.requireProof), icon: task.icon, color: task.color,
+                        conditions: Array.isArray(task.conditions) ? task.conditions : []
+                    },
                     startedAt: FieldValue.serverTimestamp()
                 }, { merge: true });
             } catch (err) {
@@ -1792,11 +1837,22 @@
             const fileInput = document.getElementById(`proofFile_${taskId}`);
             const submitBtn = document.getElementById(`submitBtn_${taskId}`);
 
+            const mobileAllowed = adminFeatureEnabled('allowMobileNumber', 'enableMobileNumber', false);
+            const proofAllowed = adminFeatureEnabled('allowProofSubmission', 'enableProofSubmission', false);
             const mobile = mobileInput ? mobileInput.value.trim() : '';
             const proofNote = proofInput ? proofInput.value.trim() : '';
 
-            if (!mobile) {
+            if (!proofAllowed) return;
+            if (mobileAllowed && !mobile) {
                 triggerInputAlert(`mobile_${taskId}`);
+                return;
+            }
+            if (mobileAllowed && !/^\\+?[0-9]{8,15}$/.test(mobile.replace(/[\\s-]/g, ''))) {
+                triggerInputAlert(`mobile_${taskId}`);
+                return;
+            }
+            if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+                alert('Please upload your screenshot proof before submitting.');
                 return;
             }
 
@@ -1820,13 +1876,19 @@
                     userName: activeDisplayName,
                     openedByTelegramId: openerTelegramId,
                     deviceId: currentDeviceId,
-                    mobile: mobile,
+                    mobile: mobileAllowed ? mobile : '',
                     taskId: task.id,
                     taskName: task.title,
+                    offerSnapshot: {
+                        title: task.title, desc: task.desc, category: task.category, tag: task.tag,
+                        reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
+                        requireProof: Boolean(task.requireProof), icon: task.icon, color: task.color,
+                        conditions: Array.isArray(task.conditions) ? task.conditions : []
+                    },
                     category: task.category,
                     reward: Number(task.reward || 0),
                     status: 'Pending',
-                    proofSummary: proofNote || `Completed ${task.title} (${mobile})`,
+                    proofSummary: proofNote || `Completed ${task.title}${mobile ? ` (${mobile})` : ''}`,
                     screenshotData: screenshotData,
                     referrer: userProfile.referrer || null,
                     referrerId: userProfile.referrerId || null,
@@ -1840,9 +1902,9 @@
                     status: 'submitted'
                 }, { merge: true });
 
-                await db.collection('users').doc(activeAccountId).set({
-                    mobile: mobile
-                }, { merge: true });
+                if (mobileAllowed) {
+                    await db.collection('users').doc(activeAccountId).set({ mobile: mobile }, { merge: true });
+                }
 
                 userTaskStatuses[task.id] = { status: 'submitted' };
                 renderMyOffers();
