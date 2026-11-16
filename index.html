@@ -914,9 +914,7 @@
 
         let liveOffers = [];
         let userTaskStatuses = {};
-        // Submission decisions are tracked separately so a userTasks snapshot cannot
-        // overwrite a newer Approved/Rejected decision while listeners load.
-        let submissionTaskStatuses = {};
+        let submissionTaskStatuses = {}; // Admin review decisions take priority.
         let transactionsData = [];
         let referralsData = [];
         let directReferralsList = [];
@@ -1291,31 +1289,29 @@
             db.collection('submissions').where('userId', '==', activeAccountId).onSnapshot((snap) => {
                 const subDocs = [];
                 const latestByTask = {};
-                // Sort by creation time so the newest admin decision wins if a user
-                // has more than one submission record for the same offer.
                 const orderedDocs = [...snap.docs].sort((a, b) => {
-                    const at = a.data().createdAt?.seconds || 0;
-                    const bt = b.data().createdAt?.seconds || 0;
+                    const ad = a.data(), bd = b.data();
+                    const at = ad.updatedAt?.seconds || ad.reviewedAt?.seconds || ad.createdAt?.seconds || 0;
+                    const bt = bd.updatedAt?.seconds || bd.reviewedAt?.seconds || bd.createdAt?.seconds || 0;
                     return at - bt;
                 });
                 orderedDocs.forEach((d) => {
                     const data = d.data();
                     subDocs.push(data);
                     if (!data.taskId) return;
-
                     let mappedStatus = 'submitted';
                     if (data.status === 'Approved') mappedStatus = 'completed';
                     else if (data.status === 'Rejected') mappedStatus = 'rejected';
-                    else if (data.status === 'Pending') mappedStatus = 'submitted';
-
                     latestByTask[data.taskId] = {
                         status: mappedStatus,
                         rejectReason: data.rejectReason || '',
                         offerSnapshot: data.offerSnapshot || (data.taskName ? {
-                            title: data.taskName, desc: 'Previously started offer', category: data.category || 'kyc',
+                            title: data.taskName, desc: 'Previously started offer',
+                            category: data.category || 'kyc',
                             tag: (data.category || 'kyc') === 'kyc' ? 'PRIME' : 'NON-KYC',
-                            reward: Number(data.reward || 0), link: '#', logo: '', requireProof: true,
-                            icon: 'fa-gift', color: 'from-emerald-500 to-teal-600', conditions: []
+                            reward: Number(data.reward || 0), link: '#', logo: '',
+                            requireProof: true, icon: 'fa-gift',
+                            color: 'from-emerald-500 to-teal-600', conditions: []
                         } : null)
                     };
                 });
@@ -1394,27 +1390,24 @@
 
         function getMergedTasks() {
             const byId = new Map(liveOffers.map(offer => [offer.id, offer]));
-            // Retain started/submitted/completed/rejected tasks even if admin removes the
-            // corresponding document from the public offers collection.
-            Object.entries(userTaskStatuses).forEach(([offerId, ut]) => {
-                if (!byId.has(offerId) && ut && ut.offerSnapshot) {
-                    byId.set(offerId, { id: offerId, ...ut.offerSnapshot, active: false });
+            const allTaskIds = new Set([...Object.keys(userTaskStatuses), ...Object.keys(submissionTaskStatuses)]);
+            allTaskIds.forEach((offerId) => {
+                const base = userTaskStatuses[offerId] || {};
+                const review = submissionTaskStatuses[offerId] || {};
+                const snapshot = review.offerSnapshot || base.offerSnapshot;
+                if (!byId.has(offerId) && snapshot) {
+                    byId.set(offerId, { id: offerId, ...snapshot, active: false });
                 }
             });
             return Array.from(byId.values()).map((offer) => {
-                // A moderation decision from submissions takes precedence over the
-                // basic started/submitted state stored in userTasks.
-                const baseTask = userTaskStatuses[offer.id] || {};
-                const decision = submissionTaskStatuses[offer.id] || {};
-                const ut = { ...baseTask, ...decision };
-                const status = ut.status || 'available';
+                const base = userTaskStatuses[offer.id] || {};
+                const review = submissionTaskStatuses[offer.id] || {};
+                const status = review.status || base.status || 'available';
                 return {
                     ...offer,
                     status,
-                    rejectReason: ut.rejectReason || '',
-                    // Started offers stay in My Offers even if the admin deletes the
-                    // public offer document. Only available offers appear publicly.
-                    hiddenFromActive: status !== 'available' && adminFeatureEnabled('autoRemoveStartedOffers', 'autoRemoveStartedOffers', false)
+                    rejectReason: review.rejectReason || base.rejectReason || '',
+                    hiddenFromActive: status !== 'available'
                 };
             });
         }
@@ -1530,9 +1523,10 @@
             if (!activeContainer) return;
 
             const merged = getMergedTasks();
-            const autoRemoveStarted = adminFeatureEnabled('autoRemoveStartedOffers', 'autoRemoveStartedOffers', false);
+            // Active Offers contains only offers the user has not started.
+            // Started/submitted tasks belong in My Offers > Ongoing.
             const availableTasks = merged.filter(t =>
-                (t.status === 'available' || (!autoRemoveStarted && t.status === 'started')) &&
+                t.status === 'available' &&
                 t.active !== false && t.category === currentOfferCategoryFilter
             );
 
@@ -1648,7 +1642,7 @@
                         : (showProofForm
                             ? `
                                 <div onclick="event.stopPropagation()" class="pt-3 border-t border-slate-100 space-y-2.5">
-                                    ${mobileAllowed ? `<input id="mobile_${task.id}" type="tel" inputmode="numeric" value="${escapeHtml(userProfile.mobile || '')}" placeholder="Mobile number (optional)" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 transition">` : ''}
+                                    ${mobileAllowed ? `<input id="mobile_${task.id}" type="tel" inputmode="tel" autocomplete="tel" maxlength="16" oninput="this.setCustomValidity('')" value="${escapeHtml(userProfile.mobile || '')}" placeholder="Enter mobile number" aria-label="Mobile number" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 transition">` : ''}
                                     ${proofAllowed ? `<label for="proofFile_${task.id}" class="flex w-full min-w-0 items-center justify-center space-x-2 border border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/70 rounded-2xl px-3 py-3 cursor-pointer transition"><i class="fa-solid fa-camera text-emerald-600 text-xs shrink-0"></i><span id="proofFileLabel_${task.id}" class="text-xs font-bold text-slate-700 truncate">Upload Screenshot (optional)</span><input id="proofFile_${task.id}" type="file" accept="image/*" onchange="handleOfferProofFile(event, '${task.id}')" class="hidden"></label>` : ''}
                                     <button id="submitBtn_${task.id}" type="button" onclick="submitTaskProof('${task.id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black text-xs px-4 py-3 rounded-2xl shadow-sm transition">Submit Details</button>
                                 </div>
@@ -1799,18 +1793,15 @@
                 return;
             }
 
-            userTaskStatuses[task.id] = {
-                userId: activeAccountId,
-                offerId: task.id,
-                status: 'started',
-                offerSnapshot: {
-                    title: task.title, desc: task.desc, category: task.category, tag: task.tag,
-                    reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
-                    requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color,
-                    conditions: Array.isArray(task.conditions) ? task.conditions : []
-                }
+            const startedSnapshot = {
+                title: task.title, desc: task.desc, category: task.category, tag: task.tag,
+                reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
+                requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color,
+                conditions: Array.isArray(task.conditions) ? task.conditions : []
             };
 
+            // Persist the start before opening the advertiser link. A failed write must
+            // not leave the user believing the offer was recorded when it was not.
             try {
                 await db.collection('userTasks').doc(`${activeAccountId}_${task.id}`).set({
                     userId: activeAccountId,
@@ -1818,17 +1809,21 @@
                     deviceId: currentDeviceId,
                     offerId: task.id,
                     status: 'started',
-                    offerSnapshot: {
-                        title: task.title, desc: task.desc, category: task.category, tag: task.tag,
-                        reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
-                        requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color,
-                        conditions: Array.isArray(task.conditions) ? task.conditions : []
-                    },
+                    offerSnapshot: startedSnapshot,
                     startedAt: FieldValue.serverTimestamp()
                 }, { merge: true });
             } catch (err) {
-                console.warn('userTasks write:', err.message);
+                console.error('Could not save started task:', err);
+                alert('Could not start this offer because your progress could not be saved. Please check your connection and try again.');
+                return;
             }
+
+            userTaskStatuses[task.id] = {
+                userId: activeAccountId,
+                offerId: task.id,
+                status: 'started',
+                offerSnapshot: startedSnapshot
+            };
 
             const offerLink = task.link;
             closeTaskDetail();
@@ -1865,13 +1860,30 @@
             const proofAllowed = proofMasterEnabled && (task.allowProofSubmission === true || task.requireProof);
             const mobileAllowed = mobileMasterEnabled && (task.collectMobile === true || (task.collectMobile == null && task.requireProof));
             const mobile = mobileInput ? mobileInput.value.trim() : '';
+            const normalizedMobile = mobile.replace(/[\s-]/g, '');
             const proofNote = proofInput ? proofInput.value.trim() : '';
 
             if (!proofAllowed && !mobileAllowed) return;
-            if (mobileAllowed && mobile && !/^\\+?[0-9]{8,15}$/.test(mobile.replace(/[\\s-]/g, ''))) {
+            if (mobileAllowed && !normalizedMobile) {
                 triggerInputAlert(`mobile_${taskId}`);
+                if (mobileInput) {
+                    mobileInput.setCustomValidity('Please enter your mobile number.');
+                    mobileInput.reportValidity();
+                    mobileInput.focus();
+                }
                 return;
             }
+            if (mobileAllowed && !/^\+?[0-9]{8,15}$/.test(normalizedMobile)) {
+                if (mobileInput) {
+                    mobileInput.setCustomValidity('Enter a valid mobile number (8–15 digits, optional + country code).');
+                    mobileInput.reportValidity();
+                    mobileInput.focus();
+                } else {
+                    triggerInputAlert(`mobile_${taskId}`);
+                }
+                return;
+            }
+            if (mobileInput) mobileInput.setCustomValidity('');
             if (task.requireProof && proofAllowed && (!fileInput || !fileInput.files || !fileInput.files[0])) {
                 alert('Please upload the required screenshot proof before submitting.');
                 return;
@@ -1897,7 +1909,7 @@
                     userName: activeDisplayName,
                     openedByTelegramId: openerTelegramId,
                     deviceId: currentDeviceId,
-                    mobile: mobileAllowed ? mobile : '',
+                    mobile: mobileAllowed ? normalizedMobile : '',
                     taskId: task.id,
                     taskName: task.title,
                     offerSnapshot: {
@@ -1909,7 +1921,7 @@
                     category: task.category,
                     reward: Number(task.reward || 0),
                     status: 'Pending',
-                    proofSummary: proofNote || `Completed ${task.title}${mobile ? ` (${mobile})` : ''}`,
+                    proofSummary: proofNote || `Completed ${task.title}${normalizedMobile ? ` (${normalizedMobile})` : ''}`,
                     screenshotData: screenshotData,
                     referrer: userProfile.referrer || null,
                     referrerId: userProfile.referrerId || null,
@@ -1923,8 +1935,8 @@
                     status: 'submitted'
                 }, { merge: true });
 
-                if (mobileAllowed && mobile) {
-                    await db.collection('users').doc(activeAccountId).set({ mobile: mobile }, { merge: true });
+                if (mobileAllowed && normalizedMobile) {
+                    await db.collection('users').doc(activeAccountId).set({ mobile: normalizedMobile }, { merge: true });
                 }
 
                 userTaskStatuses[task.id] = {
