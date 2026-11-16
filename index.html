@@ -284,7 +284,7 @@
                 <label class="text-[11px] font-black text-slate-600 uppercase tracking-wider block">AMOUNT (₹)</label>
                 <div id="withdrawAmountWrapper" class="relative flex items-center rounded-2xl border border-slate-300 bg-white transition">
                     <span class="pl-4 pr-2 font-black text-slate-700 text-sm">₹</span>
-                    <input id="withdrawAmountInput" type="number" placeholder="Enter amount" class="w-full bg-transparent pr-4 py-3.5 text-xs font-bold text-slate-800 placeholder-slate-400 outline-none">
+                    <input id="withdrawAmountInput" type="number" step="0.01" placeholder="Enter amount" class="w-full bg-transparent pr-4 py-3.5 text-xs font-bold text-slate-800 placeholder-slate-400 outline-none">
                 </div>
                 <p id="amountErrorMsg" class="text-[11px] text-rose-500 font-bold hidden pt-0.5"></p>
                 <p id="minWithdrawalHint" class="text-[11px] text-slate-500 font-medium pt-0.5">Minimum withdrawal ₹50</p>
@@ -569,7 +569,7 @@
             </div>
 
             <div class="glass-card rounded-3xl divide-y divide-slate-100 shadow-sm overflow-hidden">
-                <a id="profileChannelLink" href="https://t.me/techyrewards" target="_blank" class="p-4 flex items-center justify-between hover:bg-slate-50 transition">
+                <a id="profileChannelLink" href="https://t.me/techyrewards" target="_blank" onclick="return openTelegramTarget(event, this.href)" class="p-4 flex items-center justify-between hover:bg-slate-50 transition">
                     <div class="flex items-center space-x-3.5">
                         <div class="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">
                             <i class="fa-brands fa-telegram"></i>
@@ -582,7 +582,7 @@
                     <i class="fa-solid fa-angle-right text-slate-400 text-xs"></i>
                 </a>
 
-                <a id="profileSupportLink" href="http://t.me/techyrewardsbot" target="_blank" class="p-4 flex items-center justify-between hover:bg-slate-50 transition">
+                <a id="profileSupportLink" href="https://t.me/techyrewardsbot" target="_blank" onclick="return openTelegramTarget(event, this.href)" class="p-4 flex items-center justify-between hover:bg-slate-50 transition">
                     <div class="flex items-center space-x-3.5">
                         <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-lg">
                             <i class="fa-solid fa-headset"></i>
@@ -649,7 +649,7 @@
             <div class="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex items-start space-x-2.5 shadow-sm">
                 <i class="fa-solid fa-triangle-exclamation text-amber-600 text-sm mt-0.5 shrink-0"></i>
                 <p class="text-xs font-black text-amber-950 leading-snug">
-                    (8313)Important Notice: If you do not agree with these Terms &amp; Conditions, please do not use our app.
+                    Important Notice: If you do not agree with these Terms &amp; Conditions, please do not use our app.
                 </p>
             </div>
 
@@ -786,7 +786,7 @@
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+        db.settings({ experimentalAutoDetectLongPolling: true });
         const { FieldValue } = firebase.firestore;
 
         // ==================== TELEGRAM USER, DEVICE & REFERRAL EXTRACTION ====================
@@ -795,6 +795,7 @@
         const DEVICE_STORAGE_KEY = 'techy_device_id';
         let currentDeviceId = '';
         let currentDeviceHash = '';
+        let currentIpAddress = '';
 
         function extractReferralCode(rawParam) {
             let candidate = rawParam || '';
@@ -820,6 +821,10 @@
                 window.Telegram?.WebApp?.platform || navigator.platform || '',
                 navigator.language || '',
                 `${screen.width}x${screen.height}x${window.devicePixelRatio || 1}`,
+                String(screen.colorDepth || ''),
+                String(navigator.hardwareConcurrency || ''),
+                String(navigator.deviceMemory || ''),
+                String(navigator.maxTouchPoints || 0),
                 Intl.DateTimeFormat().resolvedOptions().timeZone || ''
             ].join('|');
             let hash = 0;
@@ -828,6 +833,32 @@
                 hash |= 0;
             }
             return 'dh_' + Math.abs(hash).toString(36);
+        }
+
+        async function fetchPublicIpAddress() {
+            const endpoints = [
+                'https://api.ipify.org?format=json',
+                'https://api64.ipify.org?format=json'
+            ];
+            for (const url of endpoints) {
+                try {
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), 3000);
+                    const res = await fetch(url, { signal: controller.signal });
+                    clearTimeout(timer);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data && data.ip) {
+                            return String(data.ip).trim();
+                        }
+                    }
+                } catch (_) {}
+            }
+            return '';
+        }
+
+        function ipToDocKey(ip) {
+            return 'ip_' + String(ip || '').replace(/[^a-zA-Z0-9]/g, '_');
         }
 
         async function getOrCreateDeviceId() {
@@ -909,7 +940,28 @@
         const MINI_APP_SHORT_NAME = 'techyrewards77';
         let pendingWithdrawalInfo = null;
         let proofImagesCache = {};
+        let proofFileNamesCache = {};
+        let draftMobileCache = {};
         let ticketImageBase64 = '';
+
+        function getLocalTasksCacheKey() {
+            return `techy_started_tasks_${activeAccountId}`;
+        }
+
+        function loadLocalUserTasks() {
+            try {
+                const raw = localStorage.getItem(getLocalTasksCacheKey());
+                return raw ? JSON.parse(raw) : {};
+            } catch (_) {
+                return {};
+            }
+        }
+
+        function saveLocalUserTasks(map) {
+            try {
+                localStorage.setItem(getLocalTasksCacheKey(), JSON.stringify(map || {}));
+            } catch (_) {}
+        }
 
         // ==================== IMAGE COMPRESSION HELPER ====================
         function compressImageToBase64(file, maxWidth = 720, quality = 0.72) {
@@ -1046,32 +1098,36 @@
 
             legacyReferralsList.forEach((u) => {
                 const earned = Number(u.earned || 0);
+                const isQual = u.qualified === true || u.status === 'Qualified';
                 merged.set(u.id, {
                     id: u.id,
                     name: u.name || 'Friend',
                     earned: earned,
-                    commissionEarned: Number(((earned * refPct) / 100).toFixed(2)),
-                    tasksCompleted: 0,
-                    primeTasksCompleted: 0,
-                    qualified: earned > 0,
-                    status: earned > 0 ? 'Qualified' : 'Pending'
+                    commissionEarned: isQual ? Number(((earned * refPct) / 100).toFixed(2)) : 0,
+                    tasksCompleted: Number(u.tasksCompleted || 0),
+                    primeTasksCompleted: Number(u.primeTasksCompleted || 0),
+                    qualified: isQual,
+                    status: isQual ? 'Qualified' : 'Pending'
                 });
             });
 
             directReferralsList.forEach((r) => {
                 const uid = String(r.referredUserId || r.id);
                 const earned = Number(r.friendTotalEarned ?? r.earned ?? 0);
+                const isQualified = r.qualified === true || r.status === 'Qualified';
                 merged.set(uid, {
                     id: uid,
                     name: r.referredUserName || r.name || 'Friend',
                     earned: earned,
-                    commissionEarned: r.commissionEarned !== undefined
-                        ? Number(r.commissionEarned)
-                        : Number(((earned * refPct) / 100).toFixed(2)),
+                    commissionEarned: isQualified
+                        ? (r.commissionEarned !== undefined
+                            ? Number(r.commissionEarned)
+                            : Number(((earned * refPct) / 100).toFixed(2)))
+                        : 0,
                     tasksCompleted: Number(r.tasksCompleted || 0),
                     primeTasksCompleted: Number(r.primeTasksCompleted || 0),
-                    qualified: r.qualified === true || r.status === 'Qualified',
-                    status: r.status || (r.qualified ? 'Qualified' : 'Pending')
+                    qualified: isQualified,
+                    status: isQualified ? 'Qualified' : 'Pending'
                 });
             });
 
@@ -1079,30 +1135,51 @@
             renderReferrals();
         }
 
-        // ==================== ONE-DEVICE-ONE-ACCOUNT FIRESTORE BINDING ====================
+        // ==================== ONE-DEVICE & ONE-IP ACCOUNT FIRESTORE BINDING ====================
         async function resolveAndBindDeviceAccount() {
             currentDeviceId = await getOrCreateDeviceId();
+            currentIpAddress = await fetchPublicIpAddress();
             const deviceRef = db.collection('devices').doc(currentDeviceId);
+            const ipRef = currentIpAddress ? db.collection('ipLocks').doc(ipToDocKey(currentIpAddress)) : null;
 
             try {
                 const resolvedId = await db.runTransaction(async (tx) => {
                     const deviceSnap = await tx.get(deviceRef);
-                    if (deviceSnap.exists) {
-                        const existing = deviceSnap.data() || {};
-                        const existingBoundId = String(existing.boundUserId || openerTelegramId);
+                    const ipSnap = ipRef ? await tx.get(ipRef) : null;
 
+                    let existingBoundId = null;
+                    if (ipSnap && ipSnap.exists && ipSnap.data()?.boundUserId) {
+                        existingBoundId = String(ipSnap.data().boundUserId);
+                    } else if (deviceSnap.exists && deviceSnap.data()?.boundUserId) {
+                        existingBoundId = String(deviceSnap.data().boundUserId);
+                    }
+
+                    if (existingBoundId) {
                         if (existingBoundId !== openerTelegramId) {
                             setTimeout(() => {
-                                alert("🔒 One Device, One Account Policy: You have been logged into the original account registered on this device to prevent multiple accounts.");
+                                alert("🔒 One Device & One IP Policy: You have been logged into the original account registered on this device/IP to prevent multiple accounts.");
                             }, 800);
                         }
 
                         tx.set(deviceRef, {
+                            deviceId: currentDeviceId,
                             deviceHash: currentDeviceHash,
+                            boundUserId: existingBoundId,
+                            ipAddress: currentIpAddress || '',
                             lastOpenedByTelegramId: openerTelegramId,
                             lastOpenedByName: openerUserName,
                             lastSeenAt: FieldValue.serverTimestamp()
                         }, { merge: true });
+
+                        if (ipRef) {
+                            tx.set(ipRef, {
+                                ipAddress: currentIpAddress,
+                                boundUserId: existingBoundId,
+                                boundDeviceId: currentDeviceId,
+                                lastOpenedByTelegramId: openerTelegramId,
+                                lastSeenAt: FieldValue.serverTimestamp()
+                            }, { merge: true });
+                        }
                         return existingBoundId;
                     }
 
@@ -1123,6 +1200,7 @@
                             referralsCount: 0,
                             boundDeviceId: currentDeviceId,
                             deviceHash: currentDeviceHash,
+                            ipAddress: currentIpAddress || '',
                             createdAt: FieldValue.serverTimestamp()
                         };
 
@@ -1136,7 +1214,8 @@
                             name: openerUserName,
                             handle: openerUserHandle,
                             boundDeviceId: currentDeviceId,
-                            deviceHash: currentDeviceHash
+                            deviceHash: currentDeviceHash,
+                            ipAddress: currentIpAddress || ''
                         }, { merge: true });
                     }
 
@@ -1145,18 +1224,32 @@
                         deviceHash: currentDeviceHash,
                         boundUserId: primaryId,
                         boundUserName: openerUserName,
+                        ipAddress: currentIpAddress || '',
                         createdAt: FieldValue.serverTimestamp(),
                         lastSeenAt: FieldValue.serverTimestamp()
                     }, { merge: true });
+
+                    if (ipRef) {
+                        tx.set(ipRef, {
+                            ipAddress: currentIpAddress,
+                            boundUserId: primaryId,
+                            boundUserName: openerUserName,
+                            boundDeviceId: currentDeviceId,
+                            createdAt: FieldValue.serverTimestamp(),
+                            lastSeenAt: FieldValue.serverTimestamp()
+                        }, { merge: true });
+                    }
 
                     return primaryId;
                 });
 
                 activeAccountId = String(resolvedId || openerTelegramId);
             } catch (err) {
-                console.warn('Device transaction fallback:', err.message);
+                console.warn('Device/IP transaction fallback:', err.message);
                 activeAccountId = openerTelegramId;
             }
+
+            userTaskStatuses = { ...loadLocalUserTasks(), ...userTaskStatuses };
 
             const boundUserRef = db.collection('users').doc(activeAccountId);
             try {
@@ -1165,6 +1258,10 @@
                     const boundData = boundSnap.data() || {};
                     activeDisplayName = boundData.name || openerUserName;
                     activeDisplayHandle = boundData.handle || openerUserHandle;
+
+                    if (currentIpAddress && !boundData.ipAddress) {
+                        await boundUserRef.set({ ipAddress: currentIpAddress }, { merge: true });
+                    }
 
                     if (!boundData.referrerId && startParamRef && startParamRef !== activeAccountId && startParamRef !== openerTelegramId) {
                         const uplinerSnap = await db.collection('users').doc(startParamRef).get();
@@ -1190,6 +1287,7 @@
                         referralsCount: 0,
                         boundDeviceId: currentDeviceId,
                         deviceHash: currentDeviceHash,
+                        ipAddress: currentIpAddress || '',
                         createdAt: FieldValue.serverTimestamp()
                     }, { merge: true });
                     if (startParamRef && startParamRef !== activeAccountId) {
@@ -1205,6 +1303,8 @@
         }
 
         function startFirestoreSync() {
+            userTaskStatuses = { ...loadLocalUserTasks(), ...userTaskStatuses };
+
             setTimeout(() => {
                 if (!offersLoaded || !userTasksLoaded || !submissionsLoaded) {
                     offersLoaded = true;
@@ -1221,6 +1321,7 @@
                     applyAppSettingsUI();
                     renderTasks();
                     renderMyOffers();
+                    renderReferrals();
                 }
             }, (err) => console.warn('settings listener:', err.message));
 
@@ -1285,14 +1386,15 @@
             });
 
             db.collection('userTasks').where('userId', '==', activeAccountId).onSnapshot((snap) => {
-                const map = {};
+                const mergedMap = { ...loadLocalUserTasks() };
                 snap.docs.forEach((d) => {
                     const data = d.data();
                     if (data.offerId) {
-                        map[data.offerId] = data;
+                        mergedMap[data.offerId] = { ...(mergedMap[data.offerId] || {}), ...data };
                     }
                 });
-                userTaskStatuses = map;
+                userTaskStatuses = mergedMap;
+                saveLocalUserTasks(mergedMap);
                 userTasksLoaded = true;
                 renderTasks();
                 renderMyOffers();
@@ -1405,7 +1507,9 @@
                     return {
                         id: d.id,
                         name: data.name || 'Friend',
-                        earned: Number(data.earned || 0)
+                        earned: Number(data.earned || 0),
+                        qualified: data.qualified === true,
+                        status: data.status || 'Pending'
                     };
                 });
                 mergeReferralSources();
@@ -1548,7 +1652,7 @@
             const activeContainer = document.getElementById('segmentActiveView');
             if (!activeContainer) return;
 
-            if (!offersLoaded) {
+            if (!offersLoaded || !userTasksLoaded || !submissionsLoaded) {
                 activeContainer.innerHTML = `<div class="glass-card p-6 rounded-2xl text-center text-xs text-slate-500 font-bold">Loading offers...</div>`;
                 return;
             }
@@ -1620,20 +1724,29 @@
             const file = event.target.files && event.target.files[0];
             const labelEl = document.getElementById(`proofFileLabel_${taskId}`);
             if (!file) return;
+            delete proofImagesCache[taskId];
+            proofFileNamesCache[taskId] = file.name;
             if (labelEl) labelEl.innerText = `Selected: ${file.name}`;
             compressImageToBase64(file, 720, 0.72).then((b64) => {
                 proofImagesCache[taskId] = b64;
-            }).catch(() => {});
+            }).catch(() => {
+                delete proofImagesCache[taskId];
+            });
         }
 
         function renderMyOffers() {
             const container = document.getElementById('myOffersContainer');
             if (!container) return;
 
-            if (!offersLoaded) {
+            if (!offersLoaded || !userTasksLoaded || !submissionsLoaded) {
                 container.innerHTML = `<div class="bg-white border border-slate-200 rounded-3xl p-6 text-center text-xs text-slate-500 font-semibold">Loading your offers...</div>`;
                 return;
             }
+
+            container.querySelectorAll('input[id^="mobile_"]').forEach((inp) => {
+                const tid = inp.id.replace('mobile_', '');
+                draftMobileCache[tid] = inp.value;
+            });
 
             const merged = getMergedTasks();
             let filtered = [];
@@ -1658,6 +1771,13 @@
                     const proofAllowed = proofMasterEnabled && (task.allowProofSubmission === true || task.requireProof);
                     const mobileAllowed = mobileMasterEnabled && (task.collectMobile === true || (task.collectMobile == null && task.requireProof));
                     const showProofForm = (proofAllowed || mobileAllowed) && !isSubmitted;
+                    const savedFileName = proofFileNamesCache[task.id];
+                    const proofLabelText = savedFileName
+                        ? `Selected: ${escapeHtml(savedFileName)}`
+                        : 'Upload Screenshot *';
+                    const mobileVal = Object.prototype.hasOwnProperty.call(draftMobileCache, task.id)
+                        ? draftMobileCache[task.id]
+                        : (userProfile.mobile || '');
                     const proofSectionHtml = isSubmitted
                         ? `
                             <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
@@ -1670,12 +1790,19 @@
                         : (showProofForm
                             ? `
                                 <div onclick="event.stopPropagation()" class="pt-3 border-t border-slate-100 space-y-2.5">
-                                    ${mobileAllowed ? `<input id="mobile_${task.id}" type="tel" inputmode="numeric" value="${escapeHtml(userProfile.mobile || '')}" placeholder="Mobile number (optional)" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 transition">` : ''}
-                                    ${proofAllowed ? `<label for="proofFile_${task.id}" class="flex w-full min-w-0 items-center justify-center space-x-2 border border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/70 rounded-2xl px-3 py-3 cursor-pointer transition"><i class="fa-solid fa-camera text-emerald-600 text-xs shrink-0"></i><span id="proofFileLabel_${task.id}" class="text-xs font-bold text-slate-700 truncate">Upload Screenshot (optional)</span><input id="proofFile_${task.id}" type="file" accept="image/*" onchange="handleOfferProofFile(event, '${task.id}')" class="hidden"></label>` : ''}
+                                    ${mobileAllowed ? `<input id="mobile_${task.id}" type="tel" inputmode="numeric" oninput="draftMobileCache['${task.id}'] = this.value" value="${escapeHtml(mobileVal)}" placeholder="Mobile number *" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 transition">` : ''}
+                                    ${proofAllowed ? `<label for="proofFile_${task.id}" class="flex w-full min-w-0 items-center justify-center space-x-2 border border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/70 rounded-2xl px-3 py-3 cursor-pointer transition"><i class="fa-solid fa-camera text-emerald-600 text-xs shrink-0"></i><span id="proofFileLabel_${task.id}" class="text-xs font-bold text-slate-700 truncate">${proofLabelText}</span><input id="proofFile_${task.id}" type="file" accept="image/*" onchange="handleOfferProofFile(event, '${task.id}')" class="hidden"></label>` : ''}
                                     <button id="submitBtn_${task.id}" type="button" onclick="submitTaskProof('${task.id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black text-xs px-4 py-3 rounded-2xl shadow-sm transition">Submit Details</button>
                                 </div>
                             `
-                            : '');
+                            : `
+                                <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                                    <span class="text-blue-700 font-bold flex items-center space-x-1.5">
+                                        <i class="fa-solid fa-satellite-dish"></i>
+                                        <span>Tracking automatically • Awaiting postback</span>
+                                    </span>
+                                </div>
+                            `);
 
                     return `
                         <div onclick="closeMyOffersScreen(); openTaskDetail('${task.id}')" class="bg-white border border-slate-200/80 p-4 rounded-3xl shadow-sm space-y-3 cursor-pointer hover:border-emerald-500/50 transition">
@@ -1805,6 +1932,27 @@
             selectedTaskId = null;
         }
 
+        function buildTrackingOfferUrl(rawUrl, taskId) {
+            if (!rawUrl || rawUrl === '#') return '#';
+            let formattedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+            const hasPlaceholder = /\{(user_id|subid|click_id|task_id)\}/i.test(formattedUrl);
+            if (hasPlaceholder) {
+                formattedUrl = formattedUrl
+                    .replace(/\{(user_id|subid|click_id)\}/gi, encodeURIComponent(activeAccountId))
+                    .replace(/\{task_id\}/gi, encodeURIComponent(taskId));
+                return formattedUrl;
+            }
+            try {
+                const u = new URL(formattedUrl);
+                if (!u.searchParams.has('subid') && !u.searchParams.has('sub_id')) {
+                    u.searchParams.set('subid', `${activeAccountId}_${taskId}`);
+                }
+                return u.toString();
+            } catch (_) {
+                return formattedUrl;
+            }
+        }
+
         async function executeStartTask() {
             if (!selectedTaskId) return;
             const merged = getMergedTasks();
@@ -1821,8 +1969,11 @@
                 return;
             }
 
-            userTaskStatuses[task.id] = {
+            const startedRecord = {
                 userId: activeAccountId,
+                openedByTelegramId: openerTelegramId,
+                deviceId: currentDeviceId,
+                ipAddress: currentIpAddress || '',
                 offerId: task.id,
                 status: 'started',
                 offerSnapshot: {
@@ -1833,33 +1984,25 @@
                 }
             };
 
+            userTaskStatuses[task.id] = startedRecord;
+            saveLocalUserTasks(userTaskStatuses);
+
+            const trackedUrl = buildTrackingOfferUrl(task.link, task.id);
+            closeTaskDetail();
+            renderTasks();
+            renderMyOffers();
+
             try {
                 await db.collection('userTasks').doc(`${activeAccountId}_${task.id}`).set({
-                    userId: activeAccountId,
-                    openedByTelegramId: openerTelegramId,
-                    deviceId: currentDeviceId,
-                    offerId: task.id,
-                    status: 'started',
-                    offerSnapshot: {
-                        title: task.title, desc: task.desc, category: task.category, isPrime: Boolean(task.isPrime), tag: task.tag,
-                        reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
-                        requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color,
-                        conditions: Array.isArray(task.conditions) ? task.conditions : []
-                    },
+                    ...startedRecord,
                     startedAt: FieldValue.serverTimestamp()
                 }, { merge: true });
             } catch (err) {
                 console.warn('userTasks write:', err.message);
             }
 
-            const offerLink = task.link;
-            closeTaskDetail();
-
-            renderTasks();
-            renderMyOffers();
-
-            if (offerLink && offerLink !== '#') {
-                openOfferUrl(offerLink);
+            if (trackedUrl && trackedUrl !== '#') {
+                openOfferUrl(trackedUrl);
             }
         }
 
@@ -1873,10 +2016,21 @@
             }
         }
 
+        function openTelegramTarget(event, url) {
+            if (!url) return true;
+            if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.openTelegramLink === 'function' && /^https?:\/\/(t\.me|telegram\.me)\//i.test(url)) {
+                if (event) event.preventDefault();
+                window.Telegram.WebApp.openTelegramLink(url.replace(/^http:\/\//i, 'https://'));
+                return false;
+            }
+            return true;
+        }
+
         async function submitTaskProof(taskId) {
             const merged = getMergedTasks();
             const task = merged.find(t => t.id === taskId);
             if (!task) return;
+            if (task.status === 'submitted' || task.status === 'completed') return;
 
             const mobileInput = document.getElementById(`mobile_${taskId}`);
             const proofInput = document.getElementById(`proof_${taskId}`);
@@ -1892,11 +2046,14 @@
             const proofNote = proofInput ? proofInput.value.trim() : '';
 
             if (!proofAllowed && !mobileAllowed) return;
-            if (mobileAllowed && cleanedMobile && !/^\+?[0-9]{10,15}$/.test(cleanedMobile)) {
+
+            if (mobileAllowed && (!cleanedMobile || !/^\+?[0-9]{10,15}$/.test(cleanedMobile))) {
                 triggerInputAlert(`mobile_${taskId}`);
                 return;
             }
-            if (task.requireProof && proofAllowed && (!fileInput || !fileInput.files || !fileInput.files[0])) {
+
+            const hasSelectedFile = Boolean((fileInput && fileInput.files && fileInput.files[0]) || proofImagesCache[taskId]);
+            if (proofAllowed && !hasSelectedFile) {
                 alert('Please upload the required screenshot proof before submitting.');
                 return;
             }
@@ -1910,7 +2067,19 @@
             if (!screenshotData && fileInput && fileInput.files && fileInput.files[0]) {
                 try {
                     screenshotData = await compressImageToBase64(fileInput.files[0], 720, 0.72);
-                } catch (_) {}
+                    proofImagesCache[taskId] = screenshotData;
+                } catch (_) {
+                    screenshotData = '';
+                }
+            }
+
+            if (proofAllowed && !screenshotData) {
+                alert('Unable to process the selected screenshot. Please choose a valid JPG or PNG image.');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Submit Details';
+                }
+                return;
             }
 
             const nowStr = formatNowDate();
@@ -1921,6 +2090,7 @@
                     userName: activeDisplayName,
                     openedByTelegramId: openerTelegramId,
                     deviceId: currentDeviceId,
+                    ipAddress: currentIpAddress || '',
                     mobile: mobileAllowed ? cleanedMobile : '',
                     taskId: task.id,
                     taskName: task.title,
@@ -1951,11 +2121,16 @@
                     await db.collection('users').doc(activeAccountId).set({ mobile: cleanedMobile }, { merge: true });
                 }
 
+                delete draftMobileCache[task.id];
+                delete proofFileNamesCache[task.id];
+                delete proofImagesCache[task.id];
+
                 userTaskStatuses[task.id] = {
                     ...(userTaskStatuses[task.id] || {}),
                     status: 'submitted',
                     offerSnapshot: { title: task.title, desc: task.desc, category: task.category, isPrime: Boolean(task.isPrime), tag: task.tag, reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '', requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color, conditions: Array.isArray(task.conditions) ? task.conditions : [] }
                 };
+                saveLocalUserTasks(userTaskStatuses);
                 renderMyOffers();
             } catch (err) {
                 console.error('Submit proof error:', err);
@@ -2197,7 +2372,13 @@
             let totalCommission = 0;
 
             referralsData.forEach(friend => {
-                totalCommission += Math.round((Number(friend.earned || 0) * refPct) / 100);
+                const isQualified = friend.qualified === true || friend.status === 'Qualified';
+                if (isQualified) {
+                    const comm = friend.commissionEarned !== undefined
+                        ? Number(friend.commissionEarned)
+                        : Math.round((Number(friend.earned || 0) * refPct) / 100);
+                    totalCommission += comm;
+                }
             });
 
             const totalQualified = referralsData.filter(f => f.qualified === true || f.status === 'Qualified').length;
@@ -2214,21 +2395,32 @@
             }
 
             listContainer.innerHTML = referralsData.map(friend => {
-                const estComm = Math.round((Number(friend.earned || 0) * refPct) / 100);
+                const isQualified = friend.qualified === true || friend.status === 'Qualified';
+                const estComm = isQualified
+                    ? (friend.commissionEarned !== undefined
+                        ? Number(friend.commissionEarned)
+                        : Math.round((Number(friend.earned || 0) * refPct) / 100))
+                    : 0;
+                const statusBadge = isQualified
+                    ? `<span class="text-[9px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full uppercase">Qualified</span>`
+                    : `<span class="text-[9px] font-black bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full uppercase">Pending</span>`;
                 return `
                     <div class="bg-emerald-50/50 border border-emerald-200/70 rounded-3xl p-4 flex items-center justify-between shadow-sm">
-                        <div class="flex items-center space-x-3.5">
+                        <div class="flex items-center space-x-3.5 min-w-0 pr-2">
                             <div class="w-11 h-11 rounded-full bg-slate-900 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-sm">
                                 ${escapeHtml(friend.name.charAt(0).toUpperCase())}
                             </div>
-                            <div class="space-y-0.5">
-                                <h4 class="font-black text-slate-900 text-xs tracking-wide uppercase">${escapeHtml(friend.name)}</h4>
+                            <div class="space-y-0.5 min-w-0">
+                                <div class="flex items-center space-x-1.5">
+                                    <h4 class="font-black text-slate-900 text-xs tracking-wide uppercase truncate">${escapeHtml(friend.name)}</h4>
+                                    ${statusBadge}
+                                </div>
                                 <p class="text-xs font-bold text-slate-700">Friend Earned: ₹${Number(friend.earned || 0).toFixed(0)}</p>
                             </div>
                         </div>
                         <div class="text-right shrink-0">
                             <span class="text-base font-black text-slate-900 block">₹${estComm.toFixed(0)}</span>
-                            <span class="text-[10px] text-slate-500 font-medium block">${refPct}% Bonus</span>
+                            <span class="text-[10px] text-slate-500 font-medium block">${isQualified ? `${refPct}% Bonus` : 'Unlocks after 3 tasks'}</span>
                         </div>
                     </div>
                 `;
@@ -2246,19 +2438,40 @@
             }
         }
 
-        function copyRefLink() {
+        async function copyRefLink() {
             const refText = document.getElementById('refLinkText').innerText;
             const copyBtn = document.getElementById('copyRefBtn');
-            const tempInput = document.createElement('input');
-            tempInput.value = refText;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            document.execCommand('copy');
-            document.body.removeChild(tempInput);
+            let copied = false;
+
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                try {
+                    await navigator.clipboard.writeText(refText);
+                    copied = true;
+                } catch (_) {
+                    copied = false;
+                }
+            }
+
+            if (!copied) {
+                const tempInput = document.createElement('textarea');
+                tempInput.value = refText;
+                tempInput.setAttribute('readonly', '');
+                tempInput.style.position = 'fixed';
+                tempInput.style.opacity = '0';
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                tempInput.setSelectionRange(0, tempInput.value.length);
+                try {
+                    copied = document.execCommand('copy');
+                } catch (_) {}
+                document.body.removeChild(tempInput);
+            }
 
             if (copyBtn) {
-                copyBtn.innerText = 'Copied!';
-                setTimeout(() => { copyBtn.innerText = 'Copy'; }, 2000);
+                copyBtn.innerText = copied ? 'Copied!' : 'Copy';
+                if (copied) {
+                    setTimeout(() => { copyBtn.innerText = 'Copy'; }, 2000);
+                }
             }
         }
 
@@ -2290,8 +2503,8 @@
         async function submitWithdrawal() {
             let methodLabel = 'UPI';
             let destinationVal = '';
-            const minWd = Number(appSettings.minWithdrawal || 50);
-            const currentBal = Number(userProfile.balance || 0);
+            const minWd = Math.round(Number(appSettings.minWithdrawal || 50) * 100) / 100;
+            const currentBal = Math.round(Number(userProfile.balance || 0) * 100) / 100;
 
             const upiInput = document.getElementById('upiIdInput');
             const upiError = document.getElementById('upiErrorMsg');
@@ -2314,7 +2527,7 @@
             if (selectedPayoutCategory === 'upi') {
                 const upiId = upiInput ? upiInput.value.trim() : '';
                 const atIndex = upiId.indexOf('@');
-                if (!upiId || atIndex === -1 || atIndex === upiId.length - 1) {
+                if (!upiId || /\s/.test(upiId) || atIndex <= 0 || atIndex === upiId.length - 1) {
                     if (upiInput) upiInput.classList.add('border-rose-500', 'bg-rose-50');
                     if (upiError) {
                         upiError.innerText = 'Please enter a valid UPI ID (e.g. name@upi)';
@@ -2327,8 +2540,7 @@
                 destinationVal = upiId;
             } else {
                 const email = gcInput ? gcInput.value.trim() : '';
-                const atIndex = email.indexOf('@');
-                if (!email || atIndex === -1 || atIndex === email.length - 1) {
+                if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
                     if (gcInput) gcInput.classList.add('border-rose-500', 'bg-rose-50');
                     if (emailError) {
                         emailError.innerText = 'Please enter a valid email address';
@@ -2341,7 +2553,8 @@
                 destinationVal = email;
             }
 
-            const amount = parseFloat(amountInput ? amountInput.value : NaN);
+            const rawAmount = parseFloat(amountInput ? amountInput.value : NaN);
+            const amount = Math.round(rawAmount * 100) / 100;
 
             if (isNaN(amount) || amount < minWd || amount > currentBal) {
                 if (amountWrapper) amountWrapper.classList.add('border-rose-500', 'bg-rose-50');
@@ -2365,21 +2578,31 @@
             const nowStr = formatNowDate();
 
             try {
-                await db.collection('users').doc(activeAccountId).set({
-                    balance: FieldValue.increment(-amount)
-                }, { merge: true });
+                const userRef = db.collection('users').doc(activeAccountId);
+                const wdRef = db.collection('withdrawals').doc();
 
-                await db.collection('withdrawals').add({
-                    userId: activeAccountId,
-                    userName: activeDisplayName,
-                    openedByTelegramId: openerTelegramId,
-                    deviceId: currentDeviceId,
-                    method: methodLabel,
-                    destination: destinationVal,
-                    amount: amount,
-                    status: 'Pending',
-                    date: nowStr,
-                    createdAt: FieldValue.serverTimestamp()
+                await db.runTransaction(async (tx) => {
+                    const userSnap = await tx.get(userRef);
+                    const serverBal = userSnap.exists ? Math.round(Number(userSnap.data().balance || 0) * 100) / 100 : 0;
+                    if (amount > serverBal) {
+                        throw new Error(`INSUFFICIENT:${serverBal.toFixed(2)}`);
+                    }
+                    tx.set(userRef, {
+                        balance: Math.round((serverBal - amount) * 100) / 100
+                    }, { merge: true });
+                    tx.set(wdRef, {
+                        userId: activeAccountId,
+                        userName: activeDisplayName,
+                        openedByTelegramId: openerTelegramId,
+                        deviceId: currentDeviceId,
+                        ipAddress: currentIpAddress || '',
+                        method: methodLabel,
+                        destination: destinationVal,
+                        amount: amount,
+                        status: 'Pending',
+                        date: nowStr,
+                        createdAt: FieldValue.serverTimestamp()
+                    });
                 });
 
                 pendingWithdrawalInfo = { amount };
@@ -2389,10 +2612,15 @@
                 document.getElementById('successWithdrawModal').classList.remove('hidden');
             } catch (err) {
                 console.error('Withdrawal submit error:', err);
+                if (amountWrapper) amountWrapper.classList.add('border-rose-500', 'bg-rose-50');
                 if (amountError) {
-                    amountError.innerText = 'Failed to submit withdrawal. Please try again.';
+                    const msg = String(err.message || '');
+                    amountError.innerText = msg.startsWith('INSUFFICIENT:')
+                        ? `Insufficient balance (Available: ₹${msg.split(':')[1]})`
+                        : 'Failed to submit withdrawal. Please try again.';
                     amountError.classList.remove('hidden');
                 }
+                if (amountHint) amountHint.classList.add('hidden');
             } finally {
                 if (submitBtn) {
                     submitBtn.disabled = false;
@@ -2404,8 +2632,9 @@
         function openRaiseTicket() {
             const selectEl = document.getElementById('ticketOfferSelect');
             if (selectEl) {
-                if (liveOffers.length > 0) {
-                    selectEl.innerHTML = liveOffers.map(task =>
+                const allOffers = getMergedTasks();
+                if (allOffers.length > 0) {
+                    selectEl.innerHTML = allOffers.map(task =>
                         `<option value="${escapeHtml(task.title)}">${escapeHtml(task.title)} (+₹${task.reward})</option>`
                     ).join('') + `<option value="General / Withdrawal Issue">General / Withdrawal Issue</option>`;
                 } else {
@@ -2425,12 +2654,15 @@
         function handleTicketFileChange(event) {
             const file = event.target.files[0];
             const labelEl = document.getElementById('ticketProofFileName');
+            ticketImageBase64 = '';
             if (file && labelEl) {
                 labelEl.innerText = `Selected: ${file.name}`;
                 document.getElementById('ticketProofErrorMsg').classList.add('hidden');
                 compressImageToBase64(file, 720, 0.72).then((b64) => {
                     ticketImageBase64 = b64;
-                }).catch(() => {});
+                }).catch(() => {
+                    ticketImageBase64 = '';
+                });
             }
         }
 
@@ -2450,6 +2682,7 @@
             let isValid = true;
 
             if (!proofInput.files || proofInput.files.length === 0) {
+                proofErrorMsg.innerText = 'Please upload a screenshot proof.';
                 proofErrorMsg.classList.remove('hidden');
                 isValid = false;
             } else {
@@ -2473,7 +2706,19 @@
             if (!ticketImageBase64 && proofInput.files[0]) {
                 try {
                     ticketImageBase64 = await compressImageToBase64(proofInput.files[0], 720, 0.72);
-                } catch (_) {}
+                } catch (_) {
+                    ticketImageBase64 = '';
+                }
+            }
+
+            if (!ticketImageBase64) {
+                proofErrorMsg.innerText = 'Unable to process the selected screenshot. Please choose a valid JPG or PNG image.';
+                proofErrorMsg.classList.remove('hidden');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Submit Ticket';
+                }
+                return;
             }
 
             try {
@@ -2482,6 +2727,7 @@
                     userName: activeDisplayName,
                     openedByTelegramId: openerTelegramId,
                     deviceId: currentDeviceId,
+                    ipAddress: currentIpAddress || '',
                     offerName: selectEl ? selectEl.value : 'Support Ticket',
                     description: descInput.value.trim(),
                     screenshotData: ticketImageBase64,
