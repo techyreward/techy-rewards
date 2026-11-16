@@ -1114,6 +1114,16 @@
                     if (deviceSnap.exists) {
                         const existing = deviceSnap.data() || {};
                         const existingBoundId = String(existing.boundUserId || openerTelegramId);
+
+                        // ONE DEVICE, ONE ACCOUNT ENFORCEMENT: 
+                        // If the current Telegram user tries to open the app on a device already bound to someone else, 
+                        // force them to use the originally bound account and show a clear alert.
+                        if (existingBoundId !== openerTelegramId) {
+                            setTimeout(() => {
+                                alert("🔒 One Device, One Account Policy: You have been logged into the original account registered on this device to prevent multiple accounts.");
+                            }, 800);
+                        }
+
                         tx.set(deviceRef, {
                             deviceHash: currentDeviceHash,
                             lastOpenedByTelegramId: openerTelegramId,
@@ -1412,9 +1422,8 @@
                     ...offer,
                     status,
                     rejectReason: ut.rejectReason || '',
-                    // Started offers stay in My Offers even if the admin deletes the
-                    // public offer document. Only available offers appear publicly.
-                    hiddenFromActive: status !== 'available' && adminFeatureEnabled('autoRemoveStartedOffers', 'autoRemoveStartedOffers', false)
+                    // Once started, offers are removed from Active and shift through My Offers tabs
+                    hiddenFromActive: status !== 'available'
                 };
             });
         }
@@ -1530,9 +1539,11 @@
             if (!activeContainer) return;
 
             const merged = getMergedTasks();
-            const autoRemoveStarted = adminFeatureEnabled('autoRemoveStartedOffers', 'autoRemoveStartedOffers', false);
+            
+            // STRICT FILTERING: Once a task is anything other than 'available' (e.g. started), 
+            // it is completely removed from Active Offers and shifts to My Offers (Ongoing -> Completed/Rejected).
             const availableTasks = merged.filter(t =>
-                (t.status === 'available' || (!autoRemoveStarted && t.status === 'started')) &&
+                t.status === 'available' &&
                 t.active !== false && t.category === currentOfferCategoryFilter
             );
 
@@ -1832,6 +1843,8 @@
 
             const offerLink = task.link;
             closeTaskDetail();
+            
+            // Re-render instantly locks task into Ongoing and removes from Active
             renderTasks();
             renderMyOffers();
 
