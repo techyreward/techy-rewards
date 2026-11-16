@@ -830,35 +830,10 @@
             return 'dh_' + Math.abs(hash).toString(36);
         }
 
+        // Uses a deterministic device fingerprint shared across all Telegram accounts on the same device
         async function getOrCreateDeviceId() {
-            let deviceId = localStorage.getItem(DEVICE_STORAGE_KEY);
-            const tgDeviceStorage = window.Telegram?.WebApp?.DeviceStorage;
-
-            if (!deviceId && tgDeviceStorage && typeof tgDeviceStorage.getItem === 'function') {
-                deviceId = await new Promise((resolve) => {
-                    try {
-                        tgDeviceStorage.getItem(DEVICE_STORAGE_KEY, (err, val) => resolve(err ? null : val));
-                    } catch (_) {
-                        resolve(null);
-                    }
-                });
-            }
-
-            if (!deviceId) {
-                deviceId = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
-                    ? crypto.randomUUID()
-                    : 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-            }
-
-            localStorage.setItem(DEVICE_STORAGE_KEY, deviceId);
-            if (tgDeviceStorage && typeof tgDeviceStorage.setItem === 'function') {
-                try {
-                    tgDeviceStorage.setItem(DEVICE_STORAGE_KEY, deviceId);
-                } catch (_) {}
-            }
-
             currentDeviceHash = computeDeviceSignalHash();
-            return deviceId;
+            return currentDeviceHash;
         }
 
         if (window.Telegram && window.Telegram.WebApp) {
@@ -914,13 +889,16 @@
 
         let liveOffers = [];
         let userTaskStatuses = {};
-        // Submission decisions are tracked separately so a userTasks snapshot cannot
-        // overwrite a newer Approved/Rejected decision while listeners load.
         let submissionTaskStatuses = {};
         let transactionsData = [];
         let referralsData = [];
         let directReferralsList = [];
         let legacyReferralsList = [];
+
+        // Initial load flags to prevent offers from jumping/shifting mid-load on refresh
+        let offersLoaded = false;
+        let userTasksLoaded = false;
+        let submissionsLoaded = false;
 
         let currentMyOffersTab = 'ongoing';
         let currentOfferCategoryFilter = 'kyc';
@@ -1115,9 +1093,6 @@
                         const existing = deviceSnap.data() || {};
                         const existingBoundId = String(existing.boundUserId || openerTelegramId);
 
-                        // ONE DEVICE, ONE ACCOUNT ENFORCEMENT: 
-                        // If the current Telegram user tries to open the app on a device already bound to someone else, 
-                        // force them to use the originally bound account and show a clear alert.
                         if (existingBoundId !== openerTelegramId) {
                             setTimeout(() => {
                                 alert("🔒 One Device, One Account Policy: You have been logged into the original account registered on this device to prevent multiple accounts.");
@@ -1236,6 +1211,8 @@
                 if (docSnap.exists) {
                     appSettings = { ...appSettings, ...docSnap.data() };
                     applyAppSettingsUI();
+                    renderTasks();
+                    renderMyOffers();
                 }
             });
 
@@ -1257,12 +1234,20 @@
                         const data = d.data();
                         const normCat = String(data.category || 'kyc').toLowerCase() === 'non-kyc' ? 'non-kyc' : 'kyc';
                         const isKyc = normCat === 'kyc';
+                        const hasPrimeFlag = Boolean(
+                            data.isPrime === true ||
+                            data.primeBadge === true ||
+                            data.showPrimeBadge === true ||
+                            data.prime === true ||
+                            String(data.badge || '').toUpperCase() === 'PRIME'
+                        );
                         return {
                             id: d.id,
                             title: data.name || data.title || 'Offer',
                             desc: data.subtitle || data.desc || 'Complete task to earn',
                             category: normCat,
-                            tag: isKyc ? 'PRIME' : 'NON-KYC',
+                            isPrime: hasPrimeFlag,
+                            tag: hasPrimeFlag ? 'PRIME' : (isKyc ? 'KYC' : 'NON-KYC'),
                             reward: Number(data.reward || data.payout || 0),
                             link: data.url || data.link || '#',
                             logo: data.logo || '',
@@ -1281,6 +1266,7 @@
                     .filter((o) => o.active)
                     .sort((a, b) => b.createdAtSec - a.createdAtSec);
 
+                offersLoaded = true;
                 renderTasks();
                 renderMyOffers();
             });
@@ -1294,6 +1280,7 @@
                     }
                 });
                 userTaskStatuses = map;
+                userTasksLoaded = true;
                 renderTasks();
                 renderMyOffers();
             });
@@ -1301,8 +1288,6 @@
             db.collection('submissions').where('userId', '==', activeAccountId).onSnapshot((snap) => {
                 const subDocs = [];
                 const latestByTask = {};
-                // Sort by creation time so the newest admin decision wins if a user
-                // has more than one submission record for the same offer.
                 const orderedDocs = [...snap.docs].sort((a, b) => {
                     const at = a.data().createdAt?.seconds || 0;
                     const bt = b.data().createdAt?.seconds || 0;
@@ -1323,13 +1308,15 @@
                         rejectReason: data.rejectReason || '',
                         offerSnapshot: data.offerSnapshot || (data.taskName ? {
                             title: data.taskName, desc: 'Previously started offer', category: data.category || 'kyc',
-                            tag: (data.category || 'kyc') === 'kyc' ? 'PRIME' : 'NON-KYC',
+                            isPrime: false,
+                            tag: (data.category || 'kyc') === 'kyc' ? 'KYC' : 'NON-KYC',
                             reward: Number(data.reward || 0), link: '#', logo: '', requireProof: true,
                             icon: 'fa-gift', color: 'from-emerald-500 to-teal-600', conditions: []
                         } : null)
                     };
                 });
                 submissionTaskStatuses = latestByTask;
+                submissionsLoaded = true;
                 renderTasks();
                 renderMyOffers();
                 syncReferralProgressToAdmin(subDocs);
@@ -1404,25 +1391,27 @@
 
         function getMergedTasks() {
             const byId = new Map(liveOffers.map(offer => [offer.id, offer]));
-            // Retain started/submitted/completed/rejected tasks even if admin removes the
-            // corresponding document from the public offers collection.
             Object.entries(userTaskStatuses).forEach(([offerId, ut]) => {
                 if (!byId.has(offerId) && ut && ut.offerSnapshot) {
                     byId.set(offerId, { id: offerId, ...ut.offerSnapshot, active: false });
                 }
             });
+            Object.entries(submissionTaskStatuses).forEach(([offerId, sub]) => {
+                if (!byId.has(offerId) && sub && sub.offerSnapshot) {
+                    byId.set(offerId, { id: offerId, ...sub.offerSnapshot, active: false });
+                }
+            });
             return Array.from(byId.values()).map((offer) => {
-                // A moderation decision from submissions takes precedence over the
-                // basic started/submitted state stored in userTasks.
                 const baseTask = userTaskStatuses[offer.id] || {};
                 const decision = submissionTaskStatuses[offer.id] || {};
                 const ut = { ...baseTask, ...decision };
                 const status = ut.status || 'available';
+                const isPrime = Boolean(offer.isPrime || String(offer.tag || '').toUpperCase() === 'PRIME');
                 return {
                     ...offer,
+                    isPrime,
                     status,
                     rejectReason: ut.rejectReason || '',
-                    // Once started, offers are removed from Active and shift through My Offers tabs
                     hiddenFromActive: status !== 'available'
                 };
             });
@@ -1432,6 +1421,10 @@
             if (Object.prototype.hasOwnProperty.call(appSettings, key)) return appSettings[key] !== false;
             if (legacyKey && Object.prototype.hasOwnProperty.call(appSettings, legacyKey)) return appSettings[legacyKey] !== false;
             return fallback;
+        }
+
+        function shouldShowPrimeBadge(task) {
+            return adminFeatureEnabled('allowPrimeBadge', 'showPrimeBadge', false) && Boolean(task && task.isPrime);
         }
 
         function applyAppSettingsUI() {
@@ -1478,18 +1471,12 @@
                 window.Telegram.WebApp.ready();
                 window.Telegram.WebApp.expand();
             }
-            initUserData();
-            initUniqueReferralLink();
             renderTasks();
             renderMyOffers();
             renderReferrals();
             renderWalletTransactions();
             renderEarningHistory();
-            const savedTab = localStorage.getItem(LAST_NAV_TAB_KEY) || 'home';
-            switchTab(['home', 'invite', 'wallet', 'profile'].includes(savedTab) ? savedTab : 'home');
-            if (localStorage.getItem(MY_OFFERS_OPEN_KEY) === '1') {
-                openMyOffersScreen();
-            }
+            switchTab('home');
             await resolveAndBindDeviceAccount();
             startFirestoreSync();
         };
@@ -1538,10 +1525,13 @@
             const activeContainer = document.getElementById('segmentActiveView');
             if (!activeContainer) return;
 
+            if (!offersLoaded || !userTasksLoaded || !submissionsLoaded) {
+                activeContainer.innerHTML = `<div class="glass-card p-6 rounded-2xl text-center text-xs text-slate-500 font-bold">Loading offers...</div>`;
+                return;
+            }
+
             const merged = getMergedTasks();
-            
-            // STRICT FILTERING: Once a task is anything other than 'available' (e.g. started), 
-            // it is completely removed from Active Offers and shifts to My Offers (Ongoing -> Completed/Rejected).
+
             const availableTasks = merged.filter(t =>
                 t.status === 'available' &&
                 t.active !== false && t.category === currentOfferCategoryFilter
@@ -1566,7 +1556,7 @@
                         <div class="flex items-center space-x-3.5 min-w-0 pr-2">
                             ${renderOfferAvatar(task)}
                             <div class="space-y-1 min-w-0">
-                                ${adminFeatureEnabled('allowPrimeBadge', 'showPrimeBadge', false) ? `<span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${escapeHtml(task.tag)}</span>` : ''}
+                                ${shouldShowPrimeBadge(task) ? `<span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">PRIME</span>` : ''}
                                 <h4 class="font-black text-slate-900 text-sm tracking-wide group-hover:text-emerald-600 transition-colors truncate">${escapeHtml(task.title)}</h4>
                                 <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
                             </div>
@@ -1581,18 +1571,13 @@
             }
         }
 
-        const LAST_NAV_TAB_KEY = 'techy_last_nav_tab';
-        const MY_OFFERS_OPEN_KEY = 'techy_my_offers_open';
-
         function openMyOffersScreen() {
             renderMyOffers();
             document.getElementById('myOffersScreen').classList.remove('hidden');
-            localStorage.setItem(MY_OFFERS_OPEN_KEY, '1');
         }
 
         function closeMyOffersScreen() {
             document.getElementById('myOffersScreen').classList.add('hidden');
-            localStorage.setItem(MY_OFFERS_OPEN_KEY, '0');
         }
 
         function switchMyOffersTab(tab) {
@@ -1622,6 +1607,11 @@
             const container = document.getElementById('myOffersContainer');
             if (!container) return;
 
+            if (!offersLoaded || !userTasksLoaded || !submissionsLoaded) {
+                container.innerHTML = `<div class="bg-white border border-slate-200 rounded-3xl p-6 text-center text-xs text-slate-500 font-semibold">Loading your offers...</div>`;
+                return;
+            }
+
             const merged = getMergedTasks();
             let filtered = [];
             if (currentMyOffersTab === 'ongoing') {
@@ -1642,8 +1632,6 @@
                     const isSubmitted = task.status === 'submitted';
                     const proofMasterEnabled = adminFeatureEnabled('allowProofSubmission', 'enableProofSubmission', false);
                     const mobileMasterEnabled = adminFeatureEnabled('allowMobileNumber', 'enableMobileNumber', false);
-                    // Per-offer options are saved by the admin panel. Fall back to the old
-                    // requireProof behavior for older offers that do not have these fields.
                     const proofAllowed = proofMasterEnabled && (task.allowProofSubmission === true || task.requireProof);
                     const mobileAllowed = mobileMasterEnabled && (task.collectMobile === true || (task.collectMobile == null && task.requireProof));
                     const showProofForm = (proofAllowed || mobileAllowed) && !isSubmitted;
@@ -1672,7 +1660,7 @@
                                 <div class="flex items-center space-x-3.5 min-w-0 pr-2">
                                     ${renderOfferAvatar(task, 'w-12 h-12 rounded-2xl text-base')}
                                     <div class="space-y-1 min-w-0">
-                                        ${adminFeatureEnabled('allowPrimeBadge', 'showPrimeBadge', false) ? `<span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">${escapeHtml(task.tag)}</span>` : ''}
+                                        ${shouldShowPrimeBadge(task) ? `<span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">PRIME</span>` : ''}
                                         <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(task.title)}</h4>
                                         <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
                                     </div>
@@ -1711,7 +1699,7 @@
                             <div class="min-w-0">
                                 <div class="flex items-center space-x-1.5">
                                     <h4 class="font-black text-slate-800 text-sm truncate">${escapeHtml(task.title)}</h4>
-                                    <span class="text-[9px] font-black bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full uppercase shrink-0">${escapeHtml(task.tag)}</span>
+                                    ${shouldShowPrimeBadge(task) ? `<span class="text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full uppercase shrink-0">PRIME</span>` : ''}
                                 </div>
                                 <p class="text-[11px] text-slate-500 font-medium truncate">${escapeHtml(task.rejectReason || task.desc)}</p>
                             </div>
@@ -1815,7 +1803,7 @@
                 offerId: task.id,
                 status: 'started',
                 offerSnapshot: {
-                    title: task.title, desc: task.desc, category: task.category, tag: task.tag,
+                    title: task.title, desc: task.desc, category: task.category, isPrime: Boolean(task.isPrime), tag: task.tag,
                     reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
                     requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color,
                     conditions: Array.isArray(task.conditions) ? task.conditions : []
@@ -1830,7 +1818,7 @@
                     offerId: task.id,
                     status: 'started',
                     offerSnapshot: {
-                        title: task.title, desc: task.desc, category: task.category, tag: task.tag,
+                        title: task.title, desc: task.desc, category: task.category, isPrime: Boolean(task.isPrime), tag: task.tag,
                         reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
                         requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color,
                         conditions: Array.isArray(task.conditions) ? task.conditions : []
@@ -1843,8 +1831,7 @@
 
             const offerLink = task.link;
             closeTaskDetail();
-            
-            // Re-render instantly locks task into Ongoing and removes from Active
+
             renderTasks();
             renderMyOffers();
 
@@ -1878,10 +1865,11 @@
             const proofAllowed = proofMasterEnabled && (task.allowProofSubmission === true || task.requireProof);
             const mobileAllowed = mobileMasterEnabled && (task.collectMobile === true || (task.collectMobile == null && task.requireProof));
             const mobile = mobileInput ? mobileInput.value.trim() : '';
+            const cleanedMobile = mobile.replace(/[\s\-()]/g, '');
             const proofNote = proofInput ? proofInput.value.trim() : '';
 
             if (!proofAllowed && !mobileAllowed) return;
-            if (mobileAllowed && mobile && !/^\\+?[0-9]{8,15}$/.test(mobile.replace(/[\\s-]/g, ''))) {
+            if (mobileAllowed && cleanedMobile && !/^\+?[0-9]{10,15}$/.test(cleanedMobile)) {
                 triggerInputAlert(`mobile_${taskId}`);
                 return;
             }
@@ -1910,11 +1898,11 @@
                     userName: activeDisplayName,
                     openedByTelegramId: openerTelegramId,
                     deviceId: currentDeviceId,
-                    mobile: mobileAllowed ? mobile : '',
+                    mobile: mobileAllowed ? cleanedMobile : '',
                     taskId: task.id,
                     taskName: task.title,
                     offerSnapshot: {
-                        title: task.title, desc: task.desc, category: task.category, tag: task.tag,
+                        title: task.title, desc: task.desc, category: task.category, isPrime: Boolean(task.isPrime), tag: task.tag,
                         reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
                         requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color,
                         conditions: Array.isArray(task.conditions) ? task.conditions : []
@@ -1922,7 +1910,7 @@
                     category: task.category,
                     reward: Number(task.reward || 0),
                     status: 'Pending',
-                    proofSummary: proofNote || `Completed ${task.title}${mobile ? ` (${mobile})` : ''}`,
+                    proofSummary: proofNote || `Completed ${task.title}${cleanedMobile ? ` (${cleanedMobile})` : ''}`,
                     screenshotData: screenshotData,
                     referrer: userProfile.referrer || null,
                     referrerId: userProfile.referrerId || null,
@@ -1936,21 +1924,21 @@
                     status: 'submitted'
                 }, { merge: true });
 
-                if (mobileAllowed && mobile) {
-                    await db.collection('users').doc(activeAccountId).set({ mobile: mobile }, { merge: true });
+                if (mobileAllowed && cleanedMobile) {
+                    await db.collection('users').doc(activeAccountId).set({ mobile: cleanedMobile }, { merge: true });
                 }
 
                 userTaskStatuses[task.id] = {
                     ...(userTaskStatuses[task.id] || {}),
                     status: 'submitted',
-                    offerSnapshot: { title: task.title, desc: task.desc, category: task.category, tag: task.tag, reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '', requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color, conditions: Array.isArray(task.conditions) ? task.conditions : [] }
+                    offerSnapshot: { title: task.title, desc: task.desc, category: task.category, isPrime: Boolean(task.isPrime), tag: task.tag, reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '', requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color, conditions: Array.isArray(task.conditions) ? task.conditions : [] }
                 };
                 renderMyOffers();
             } catch (err) {
                 console.error('Submit proof error:', err);
                 if (submitBtn) {
                     submitBtn.disabled = false;
-                    submitBtn.innerText = 'Submit Proof';
+                    submitBtn.innerText = 'Submit Details';
                 }
             }
         }
@@ -2232,7 +2220,6 @@
             if (tabEl && navEl) {
                 tabEl.classList.remove('hidden');
                 navEl.classList.replace('text-slate-400', 'text-emerald-600');
-                localStorage.setItem(LAST_NAV_TAB_KEY, tab);
             }
         }
 
