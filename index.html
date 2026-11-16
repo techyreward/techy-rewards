@@ -830,7 +830,6 @@
             return 'dh_' + Math.abs(hash).toString(36);
         }
 
-        // Uses a deterministic device fingerprint shared across all Telegram accounts on the same device
         async function getOrCreateDeviceId() {
             currentDeviceHash = computeDeviceSignalHash();
             return currentDeviceHash;
@@ -895,7 +894,6 @@
         let directReferralsList = [];
         let legacyReferralsList = [];
 
-        // Initial load flags to prevent offers from jumping/shifting mid-load on refresh
         let offersLoaded = false;
         let userTasksLoaded = false;
         let submissionsLoaded = false;
@@ -1207,6 +1205,16 @@
         }
 
         function startFirestoreSync() {
+            setTimeout(() => {
+                if (!offersLoaded || !userTasksLoaded || !submissionsLoaded) {
+                    offersLoaded = true;
+                    userTasksLoaded = true;
+                    submissionsLoaded = true;
+                    renderTasks();
+                    renderMyOffers();
+                }
+            }, 3000);
+
             db.collection('settings').doc('app').onSnapshot((docSnap) => {
                 if (docSnap.exists) {
                     appSettings = { ...appSettings, ...docSnap.data() };
@@ -1214,7 +1222,7 @@
                     renderTasks();
                     renderMyOffers();
                 }
-            });
+            }, (err) => console.warn('settings listener:', err.message));
 
             db.collection('users').doc(activeAccountId).onSnapshot((docSnap) => {
                 if (docSnap.exists) {
@@ -1226,7 +1234,7 @@
                     }
                     updateWalletAndProfileUI();
                 }
-            });
+            }, (err) => console.warn('users listener:', err.message));
 
             db.collection('offers').onSnapshot((snap) => {
                 liveOffers = snap.docs
@@ -1269,6 +1277,11 @@
                 offersLoaded = true;
                 renderTasks();
                 renderMyOffers();
+            }, (err) => {
+                console.warn('offers listener:', err.message);
+                offersLoaded = true;
+                renderTasks();
+                renderMyOffers();
             });
 
             db.collection('userTasks').where('userId', '==', activeAccountId).onSnapshot((snap) => {
@@ -1280,6 +1293,11 @@
                     }
                 });
                 userTaskStatuses = map;
+                userTasksLoaded = true;
+                renderTasks();
+                renderMyOffers();
+            }, (err) => {
+                console.warn('userTasks listener:', err.message);
                 userTasksLoaded = true;
                 renderTasks();
                 renderMyOffers();
@@ -1320,6 +1338,11 @@
                 renderTasks();
                 renderMyOffers();
                 syncReferralProgressToAdmin(subDocs);
+            }, (err) => {
+                console.warn('submissions listener:', err.message);
+                submissionsLoaded = true;
+                renderTasks();
+                renderMyOffers();
             });
 
             let earningsList = [];
@@ -1347,7 +1370,7 @@
                     };
                 });
                 rebuildTransactions();
-            });
+            }, (err) => console.warn('transactions listener:', err.message));
 
             db.collection('withdrawals').where('userId', '==', activeAccountId).onSnapshot((snap) => {
                 withdrawalsList = snap.docs.map((d) => {
@@ -1366,7 +1389,7 @@
                     };
                 });
                 rebuildTransactions();
-            });
+            }, (err) => console.warn('withdrawals listener:', err.message));
 
             db.collection('referrals').where('referrerId', '==', activeAccountId).onSnapshot((snap) => {
                 directReferralsList = snap.docs.map((d) => ({
@@ -1374,7 +1397,7 @@
                     ...d.data()
                 }));
                 mergeReferralSources();
-            });
+            }, (err) => console.warn('referrals listener:', err.message));
 
             db.collection('users').where('referrerId', '==', activeAccountId).onSnapshot((snap) => {
                 legacyReferralsList = snap.docs.map((d) => {
@@ -1386,7 +1409,7 @@
                     };
                 });
                 mergeReferralSources();
-            });
+            }, (err) => console.warn('legacy referrals listener:', err.message));
         }
 
         function getMergedTasks() {
@@ -1525,7 +1548,7 @@
             const activeContainer = document.getElementById('segmentActiveView');
             if (!activeContainer) return;
 
-            if (!offersLoaded || !userTasksLoaded || !submissionsLoaded) {
+            if (!offersLoaded) {
                 activeContainer.innerHTML = `<div class="glass-card p-6 rounded-2xl text-center text-xs text-slate-500 font-bold">Loading offers...</div>`;
                 return;
             }
@@ -1607,7 +1630,7 @@
             const container = document.getElementById('myOffersContainer');
             if (!container) return;
 
-            if (!offersLoaded || !userTasksLoaded || !submissionsLoaded) {
+            if (!offersLoaded) {
                 container.innerHTML = `<div class="bg-white border border-slate-200 rounded-3xl p-6 text-center text-xs text-slate-500 font-semibold">Loading your offers...</div>`;
                 return;
             }
