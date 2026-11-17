@@ -1,4 +1,4 @@
-// Cloudflare deployment test
+// Deployment trigger
 const corsOrigin = "https://techyreward.github.io";
 
 export default {
@@ -10,7 +10,7 @@ export default {
       "Access-Control-Allow-Headers": "Content-Type",
       "Content-Type": "application/json"
     };
-
+    
     if (origin !== corsOrigin) {
       return new Response("Forbidden", { status: 403 });
     }
