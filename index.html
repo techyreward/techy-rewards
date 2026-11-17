@@ -62,6 +62,23 @@
 </head>
 <body class="min-h-screen text-slate-800 pb-24 select-none">
 
+    <!-- SUSPENDED ACCOUNT OVERLAY -->
+    <div id="suspendedScreen" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-5">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border border-rose-200">
+            <div class="w-16 h-16 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-2xl mx-auto">
+                <i class="fa-solid fa-ban"></i>
+            </div>
+            <div class="space-y-1">
+                <span class="text-[10px] font-black bg-rose-100 text-rose-700 px-2.5 py-0.5 rounded-full uppercase tracking-wider">Account Suspended</span>
+                <h2 class="text-xl font-black text-slate-900 pt-1">Access Restricted</h2>
+                <p class="text-xs text-slate-600 leading-relaxed">Your account has been suspended by the admin team due to policy or verification review. Withdrawals and new task submissions are disabled.</p>
+            </div>
+            <a id="suspendedSupportLink" href="https://t.me/techyrewardsbot" target="_blank" onclick="return openTelegramTarget(event, this.href)" class="block w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-3.5 rounded-2xl text-xs transition">
+                Contact Support
+            </a>
+        </div>
+    </div>
+
     <!-- FULL PAGE TASK DETAIL VIEW -->
     <div id="taskDetailScreen" class="fixed inset-0 bg-[#f8fafc] z-50 hidden overflow-y-auto flex flex-col justify-between p-5">
         <div class="max-w-md mx-auto w-full flex-1 flex flex-col justify-between space-y-4 pb-6">
@@ -784,9 +801,13 @@
             appId: "1:430187217619:web:9a47a59517027559874a26"
         };
 
-        firebase.initializeApp(firebaseConfig);
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
         const db = firebase.firestore();
-        db.settings({ experimentalAutoDetectLongPolling: true });
+        try {
+            db.settings({ experimentalAutoDetectLongPolling: true });
+        } catch (_) {}
         const { FieldValue } = firebase.firestore;
 
         // ==================== TELEGRAM USER, DEVICE & REFERRAL EXTRACTION ====================
@@ -942,6 +963,7 @@
         let proofImagesCache = {};
         let proofFileNamesCache = {};
         let draftMobileCache = {};
+        let draftCustomFieldCache = {};
         let ticketImageBase64 = '';
 
         function getLocalTasksCacheKey() {
@@ -1055,17 +1077,30 @@
             if (!refId || refId === activeAccountId || refId === openerTelegramId) return;
 
             try {
-                const approved = submissionsDocs.filter((s) => s.status === 'Approved');
+                const uniqueApproved = new Map();
+                submissionsDocs
+                    .filter((s) => s.status === 'Approved')
+                    .sort((a, b) => (a.approvedAt?.seconds || a.createdAt?.seconds || 0) - (b.approvedAt?.seconds || b.createdAt?.seconds || 0))
+                    .forEach((s) => {
+                        const key = String(s.taskId || s.taskName || Math.random());
+                        if (!uniqueApproved.has(key)) {
+                            uniqueApproved.set(key, s);
+                        }
+                    });
+
+                const approved = Array.from(uniqueApproved.values());
                 const tasksCompleted = approved.length;
                 const primeTasksCompleted = approved.filter((s) => {
                     const cat = String(s.category || '').toLowerCase();
-                    return cat === 'kyc' || cat === 'prime';
+                    return cat === 'kyc' || cat === 'prime' || s.isPrime === true;
                 }).length;
 
                 const isQualified = tasksCompleted >= 3 || primeTasksCompleted >= 1;
-                const friendEarned = Number(userProfile.earned || 0);
+                const friendEarned = approved.reduce((sum, s) => sum + Number(s.reward || 0), 0);
                 const refPct = Number(appSettings.referralPercent || 50);
-                const computedComm = isQualified ? Number(((friendEarned * refPct) / 100).toFixed(2)) : 0;
+                const computedComm = isQualified
+                    ? approved.slice(0, 3).reduce((sum, s) => sum + Math.round((Number(s.reward || 0) * refPct) / 100), 0)
+                    : 0;
 
                 const refDoc = db.collection('referrals').doc(activeAccountId);
                 const snap = await refDoc.get();
@@ -1333,6 +1368,14 @@
                         activeDisplayName = data.name;
                         initUserData();
                     }
+                    const suspEl = document.getElementById('suspendedScreen');
+                    if (suspEl) {
+                        if (data.suspended === true) {
+                            suspEl.classList.remove('hidden');
+                        } else {
+                            suspEl.classList.add('hidden');
+                        }
+                    }
                     updateWalletAndProfileUI();
                 }
             }, (err) => console.warn('users listener:', err.message));
@@ -1364,6 +1407,7 @@
                             requireProof: Boolean(data.requireProof || data.proofRequired || data.isProofRequired),
                             collectMobile: Boolean(data.collectMobile),
                             allowProofSubmission: Boolean(data.allowProofSubmission),
+                            customFieldLabel: String(data.customFieldLabel || '').trim(),
                             icon: isKyc ? 'fa-shield-halved' : 'fa-bolt',
                             color: isKyc ? 'from-emerald-500 to-teal-600' : 'from-indigo-500 to-purple-600',
                             conditions: Array.isArray(data.steps) && data.steps.length
@@ -1575,6 +1619,8 @@
 
             const supLink = document.getElementById('profileSupportLink');
             if (supLink && appSettings.supportLink) supLink.href = appSettings.supportLink;
+            const suspSup = document.getElementById('suspendedSupportLink');
+            if (suspSup && appSettings.supportLink) suspSup.href = appSettings.supportLink;
         }
 
         function updateWalletAndProfileUI() {
@@ -1747,6 +1793,10 @@
                 const tid = inp.id.replace('mobile_', '');
                 draftMobileCache[tid] = inp.value;
             });
+            container.querySelectorAll('input[id^="customField_"]').forEach((inp) => {
+                const tid = inp.id.replace('customField_', '');
+                draftCustomFieldCache[tid] = inp.value;
+            });
 
             const merged = getMergedTasks();
             let filtered = [];
@@ -1770,7 +1820,9 @@
                     const mobileMasterEnabled = adminFeatureEnabled('allowMobileNumber', 'enableMobileNumber', false);
                     const proofAllowed = proofMasterEnabled && (task.allowProofSubmission === true || task.requireProof);
                     const mobileAllowed = mobileMasterEnabled && (task.collectMobile === true || (task.collectMobile == null && task.requireProof));
-                    const showProofForm = (proofAllowed || mobileAllowed) && !isSubmitted;
+                    const customLabel = String(task.customFieldLabel || '').trim();
+                    const customAllowed = Boolean(customLabel);
+                    const showProofForm = (proofAllowed || mobileAllowed || customAllowed) && !isSubmitted;
                     const savedFileName = proofFileNamesCache[task.id];
                     const proofLabelText = savedFileName
                         ? `Selected: ${escapeHtml(savedFileName)}`
@@ -1778,18 +1830,22 @@
                     const mobileVal = Object.prototype.hasOwnProperty.call(draftMobileCache, task.id)
                         ? draftMobileCache[task.id]
                         : (userProfile.mobile || '');
+                    const customVal = Object.prototype.hasOwnProperty.call(draftCustomFieldCache, task.id)
+                        ? draftCustomFieldCache[task.id]
+                        : '';
                     const proofSectionHtml = isSubmitted
                         ? `
                             <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                                 <span class="text-amber-700 font-bold flex items-center space-x-1.5">
                                     <i class="fa-solid fa-clock"></i>
-                                    <span>Proof submitted • Under admin review</span>
+                                    <span>Proof Submitted • Admin Review</span>
                                 </span>
                             </div>
                         `
                         : (showProofForm
                             ? `
                                 <div onclick="event.stopPropagation()" class="pt-3 border-t border-slate-100 space-y-2.5">
+                                    ${customAllowed ? `<input id="customField_${task.id}" type="text" oninput="draftCustomFieldCache['${task.id}'] = this.value" value="${escapeHtml(customVal)}" placeholder="${escapeHtml(customLabel)} *" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 transition">` : ''}
                                     ${mobileAllowed ? `<input id="mobile_${task.id}" type="tel" inputmode="numeric" oninput="draftMobileCache['${task.id}'] = this.value" value="${escapeHtml(mobileVal)}" placeholder="Mobile number *" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 transition">` : ''}
                                     ${proofAllowed ? `<label for="proofFile_${task.id}" class="flex w-full min-w-0 items-center justify-center space-x-2 border border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/70 rounded-2xl px-3 py-3 cursor-pointer transition"><i class="fa-solid fa-camera text-emerald-600 text-xs shrink-0"></i><span id="proofFileLabel_${task.id}" class="text-xs font-bold text-slate-700 truncate">${proofLabelText}</span><input id="proofFile_${task.id}" type="file" accept="image/*" onchange="handleOfferProofFile(event, '${task.id}')" class="hidden"></label>` : ''}
                                     <button id="submitBtn_${task.id}" type="button" onclick="submitTaskProof('${task.id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black text-xs px-4 py-3 rounded-2xl shadow-sm transition">Submit Details</button>
@@ -1904,7 +1960,7 @@
                 startBtn.innerHTML = `<span>COMPLETED</span><i class="fa-solid fa-circle-check"></i>`;
             } else if (task.status === 'submitted') {
                 statusBadge.className = 'text-[10px] font-black bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full';
-                statusBadge.innerText = 'Under Review';
+                statusBadge.innerText = 'Admin Review';
                 startBtn.innerHTML = `<span>VIEW IN MY OFFERS</span><i class="fa-solid fa-arrow-right"></i>`;
             } else if (task.status === 'started') {
                 statusBadge.className = 'text-[10px] font-black bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full';
@@ -1954,6 +2010,10 @@
         }
 
         async function executeStartTask() {
+            if (userProfile.suspended === true) {
+                alert('Your account is suspended. Starting new tasks is disabled.');
+                return;
+            }
             if (!selectedTaskId) return;
             const merged = getMergedTasks();
             const task = merged.find(t => t.id === selectedTaskId);
@@ -1979,7 +2039,7 @@
                 offerSnapshot: {
                     title: task.title, desc: task.desc, category: task.category, isPrime: Boolean(task.isPrime), tag: task.tag,
                     reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
-                    requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), icon: task.icon, color: task.color,
+                    requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), customFieldLabel: String(task.customFieldLabel || ''), icon: task.icon, color: task.color,
                     conditions: Array.isArray(task.conditions) ? task.conditions : []
                 }
             };
@@ -2032,7 +2092,13 @@
             if (!task) return;
             if (task.status === 'submitted' || task.status === 'completed') return;
 
+            if (userProfile.suspended === true) {
+                alert('Your account is suspended. Task submissions are disabled.');
+                return;
+            }
+
             const mobileInput = document.getElementById(`mobile_${taskId}`);
+            const customInput = document.getElementById(`customField_${taskId}`);
             const proofInput = document.getElementById(`proof_${taskId}`);
             const fileInput = document.getElementById(`proofFile_${taskId}`);
             const submitBtn = document.getElementById(`submitBtn_${taskId}`);
@@ -2041,11 +2107,19 @@
             const mobileMasterEnabled = adminFeatureEnabled('allowMobileNumber', 'enableMobileNumber', false);
             const proofAllowed = proofMasterEnabled && (task.allowProofSubmission === true || task.requireProof);
             const mobileAllowed = mobileMasterEnabled && (task.collectMobile === true || (task.collectMobile == null && task.requireProof));
+            const customLabel = String(task.customFieldLabel || '').trim();
+            const customAllowed = Boolean(customLabel);
+            const customValue = customInput ? customInput.value.trim() : '';
             const mobile = mobileInput ? mobileInput.value.trim() : '';
             const cleanedMobile = mobile.replace(/[\s\-()]/g, '');
             const proofNote = proofInput ? proofInput.value.trim() : '';
 
-            if (!proofAllowed && !mobileAllowed) return;
+            if (!proofAllowed && !mobileAllowed && !customAllowed) return;
+
+            if (customAllowed && !customValue) {
+                triggerInputAlert(`customField_${taskId}`);
+                return;
+            }
 
             if (mobileAllowed && (!cleanedMobile || !/^\+?[0-9]{10,15}$/.test(cleanedMobile))) {
                 triggerInputAlert(`mobile_${taskId}`);
@@ -2092,6 +2166,8 @@
                     deviceId: currentDeviceId,
                     ipAddress: currentIpAddress || '',
                     mobile: mobileAllowed ? cleanedMobile : '',
+                    customFieldLabel: customAllowed ? customLabel : '',
+                    customFieldValue: customAllowed ? customValue : '',
                     taskId: task.id,
                     taskName: task.title,
                     offerSnapshot: {
@@ -2122,6 +2198,7 @@
                 }
 
                 delete draftMobileCache[task.id];
+                delete draftCustomFieldCache[task.id];
                 delete proofFileNamesCache[task.id];
                 delete proofImagesCache[task.id];
 
@@ -2501,6 +2578,10 @@
         }
 
         async function submitWithdrawal() {
+            if (userProfile.suspended === true) {
+                alert('Your account is suspended. Withdrawals are disabled.');
+                return;
+            }
             let methodLabel = 'UPI';
             let destinationVal = '';
             const minWd = Math.round(Number(appSettings.minWithdrawal || 50) * 100) / 100;
