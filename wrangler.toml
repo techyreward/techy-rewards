@@ -1,4 +1,6 @@
 name = "techy-auth"
 main = "worker.js"
 compatibility_date = "2026-11-17"
-workers_dev = true
+
+[vars]
+FIREBASE_PROJECT_ID = "techyrewards-62999"
