@@ -1191,9 +1191,7 @@
 
                     if (existingBoundId) {
                         if (existingBoundId !== openerTelegramId) {
-                            setTimeout(() => {
-                                alert("🔒 One Device & One IP Policy: You have been logged into the original account registered on this device/IP to prevent multiple accounts.");
-                            }, 800);
+                            // Original account login remains enforced; popup alert removed.
                         }
 
                         tx.set(deviceRef, {
@@ -1838,7 +1836,7 @@
                             <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                                 <span class="text-amber-700 font-bold flex items-center space-x-1.5">
                                     <i class="fa-solid fa-clock"></i>
-                                    <span>Proof Submitted • Admin Review</span>
+                                    <span>Proof Submitted • Wait for verification</span>
                                 </span>
                             </div>
                         `
