@@ -1,4 +1,4 @@
-
+// Cloudflare deployment test
 const corsOrigin = "https://techyreward.github.io";
 
 export default {
