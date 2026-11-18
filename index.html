@@ -828,7 +828,7 @@
           const result = await response.json();
 
           if (!response.ok || !result.success || !result.customToken) {
-            throw new Error(result.error || "Worker rejected login");
+            throw new Error(result.detail || result.error || "Worker rejected login");
           }
 
           await auth.signInWithCustomToken(result.customToken);
