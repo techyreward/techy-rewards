@@ -867,23 +867,71 @@
             return candidate;
         }
 
+        let isDeviceLockBlocked = false;
+        let deviceLockReason = '';
+
+        function showHardDeviceLockScreen(message) {
+            isDeviceLockBlocked = true;
+            deviceLockReason = message || 'This device is already locked to another account.';
+            document.body.innerHTML = `
+                <div class="min-h-screen bg-slate-950 text-white flex items-center justify-center p-5">
+                    <div class="bg-white text-slate-900 rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border border-rose-200">
+                        <div class="w-16 h-16 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-2xl mx-auto">
+                            <i class="fa-solid fa-lock"></i>
+                        </div>
+                        <div class="space-y-1">
+                            <span class="text-[10px] font-black bg-rose-100 text-rose-700 px-2.5 py-0.5 rounded-full uppercase tracking-wider">One Device • One ID Lock</span>
+                            <h2 class="text-xl font-black text-slate-900 pt-1">Device Already Bound</h2>
+                            <p class="text-xs text-slate-600 leading-relaxed">${escapeHtml(deviceLockReason)}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getCanvasFingerprintPart() {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 200;
+                canvas.height = 50;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return 'no-canvas';
+                ctx.textBaseline = 'top';
+                ctx.font = '14px Arial';
+                ctx.fillStyle = '#16a34a';
+                ctx.fillRect(10, 5, 100, 20);
+                ctx.fillStyle = '#0f172a';
+                ctx.fillText('TechyLock-v2', 12, 10);
+                return canvas.toDataURL().slice(-32);
+            } catch (_) {
+                return 'canvas-err';
+            }
+        }
+
         function computeDeviceSignalHash() {
             const raw = [
                 window.Telegram?.WebApp?.platform || navigator.platform || '',
+                navigator.userAgent || '',
                 navigator.language || '',
                 `${screen.width}x${screen.height}x${window.devicePixelRatio || 1}`,
                 String(screen.colorDepth || ''),
                 String(navigator.hardwareConcurrency || ''),
                 String(navigator.deviceMemory || ''),
                 String(navigator.maxTouchPoints || 0),
-                Intl.DateTimeFormat().resolvedOptions().timeZone || ''
+                Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+                getCanvasFingerprintPart()
             ].join('|');
-            let hash = 0;
+
+            let h1 = 0x811c9dc5;
+            let h2 = 0x01000193;
             for (let i = 0; i < raw.length; i++) {
-                hash = ((hash << 5) - hash) + raw.charCodeAt(i);
-                hash |= 0;
+                const ch = raw.charCodeAt(i);
+                h1 ^= ch;
+                h1 = Math.imul(h1, 0x01000193);
+                h2 ^= ch;
+                h2 = Math.imul(h2, 0x85ebca6b);
             }
-            return 'dh_' + Math.abs(hash).toString(36);
+            return 'dh_' + (h1 >>> 0).toString(36) + '_' + (h2 >>> 0).toString(36);
         }
 
         async function fetchPublicIpAddress() {
@@ -914,7 +962,16 @@
 
         async function getOrCreateDeviceId() {
             currentDeviceHash = computeDeviceSignalHash();
-            return currentDeviceHash;
+            let storedId = '';
+            try {
+                storedId = localStorage.getItem(DEVICE_STORAGE_KEY) || '';
+            } catch (_) {}
+
+            const finalDeviceId = currentDeviceHash || storedId;
+            try {
+                localStorage.setItem(DEVICE_STORAGE_KEY, finalDeviceId);
+            } catch (_) {}
+            return finalDeviceId;
         }
 
         if (!window.Telegram?.WebApp || !window.Telegram.WebApp.initData) {
@@ -1215,159 +1272,166 @@
             currentIpAddress = await fetchPublicIpAddress();
             const deviceRef = db.collection('devices').doc(currentDeviceId);
             const ipRef = currentIpAddress ? db.collection('ipLocks').doc(ipToDocKey(currentIpAddress)) : null;
+            const userRef = db.collection('users').doc(verifiedUserId);
 
-            try {
-                const resolvedId = await db.runTransaction(async (tx) => {
-                    const deviceSnap = await tx.get(deviceRef);
-                    const ipSnap = ipRef ? await tx.get(ipRef) : null;
+            const resolvedId = await db.runTransaction(async (tx) => {
+                const deviceSnap = await tx.get(deviceRef);
+                const ipSnap = ipRef ? await tx.get(ipRef) : null;
+                const userSnap = await tx.get(userRef);
 
-                    let existingBoundId = null;
-                    if (ipSnap && ipSnap.exists && ipSnap.data()?.boundUserId) {
-                        existingBoundId = String(ipSnap.data().boundUserId);
-                    } else if (deviceSnap.exists && deviceSnap.data()?.boundUserId) {
-                        existingBoundId = String(deviceSnap.data().boundUserId);
+                if (userSnap.exists && userSnap.data()?.boundDeviceId) {
+                    const userBoundDevice = String(userSnap.data().boundDeviceId);
+                    if (userBoundDevice !== currentDeviceId) {
+                        throw new Error("LOCKED_OTHER_DEVICE: This account is locked to another device.");
                     }
+                }
 
-                    if (existingBoundId) {
-                        if (existingBoundId !== verifiedUserId) {
-                            throw new Error("This device or IP is bound to another account.");
-                        }
-
-                        tx.set(deviceRef, {
-                            deviceId: currentDeviceId,
-                            deviceHash: currentDeviceHash,
-                            boundUserId: existingBoundId,
-                            ipAddress: currentIpAddress || '',
-                            lastOpenedByTelegramId: openerTelegramId,
-                            lastOpenedByName: openerUserName,
-                            lastSeenAt: FieldValue.serverTimestamp()
-                        }, { merge: true });
-
-                        if (ipRef) {
-                            tx.set(ipRef, {
-                                ipAddress: currentIpAddress,
-                                boundUserId: existingBoundId,
-                                boundDeviceId: currentDeviceId,
-                                lastOpenedByTelegramId: openerTelegramId,
-                                lastSeenAt: FieldValue.serverTimestamp()
-                            }, { merge: true });
-                        }
-                        return existingBoundId;
+                let existingBoundId = null;
+                if (ipSnap && ipSnap.exists && ipSnap.data()?.boundUserId) {
+                    existingBoundId = String(ipSnap.data().boundUserId);
+                }
+                if (deviceSnap.exists && deviceSnap.data()?.boundUserId) {
+                    const devBoundId = String(deviceSnap.data().boundUserId);
+                    if (existingBoundId && existingBoundId !== devBoundId) {
+                        throw new Error("LOCKED_CONFLICT: Device and IP bindings belong to different accounts.");
                     }
+                    existingBoundId = devBoundId;
+                }
 
-                    const primaryId = verifiedUserId;
-                    const userRef = db.collection('users').doc(primaryId);
-                    const userSnap = await tx.get(userRef);
-
-                    if (!userSnap.exists) {
-                        const newUserDoc = {
-                            name: openerUserName,
-                            handle: openerUserHandle,
-                            mobile: '',
-                            balance: 0,
-                            earned: 0,
-                            withdrawn: 0,
-                            referrer: null,
-                            referrerId: null,
-                            referralsCount: 0,
-                            boundDeviceId: currentDeviceId,
-                            deviceHash: currentDeviceHash,
-                            ipAddress: currentIpAddress || '',
-                            createdAt: FieldValue.serverTimestamp()
-                        };
-
-                        if (startParamRef && startParamRef !== primaryId) {
-                            newUserDoc.referrerId = startParamRef;
-                            newUserDoc.referrer = startParamRef;
-                        }
-                        tx.set(userRef, newUserDoc, { merge: true });
-                    } else {
-                        tx.set(userRef, {
-                            name: openerUserName,
-                            handle: openerUserHandle,
-                            boundDeviceId: currentDeviceId,
-                            deviceHash: currentDeviceHash,
-                            ipAddress: currentIpAddress || ''
-                        }, { merge: true });
+                if (existingBoundId) {
+                    if (existingBoundId !== verifiedUserId) {
+                        throw new Error("LOCKED_OTHER_USER: One Device = One ID. This device or IP is bound to another account.");
                     }
 
                     tx.set(deviceRef, {
                         deviceId: currentDeviceId,
                         deviceHash: currentDeviceHash,
-                        boundUserId: primaryId,
-                        boundUserName: openerUserName,
+                        boundUserId: existingBoundId,
                         ipAddress: currentIpAddress || '',
-                        createdAt: FieldValue.serverTimestamp(),
+                        lastOpenedByTelegramId: openerTelegramId,
+                        lastOpenedByName: openerUserName,
                         lastSeenAt: FieldValue.serverTimestamp()
                     }, { merge: true });
 
                     if (ipRef) {
                         tx.set(ipRef, {
                             ipAddress: currentIpAddress,
-                            boundUserId: primaryId,
-                            boundUserName: openerUserName,
+                            boundUserId: existingBoundId,
                             boundDeviceId: currentDeviceId,
-                            createdAt: FieldValue.serverTimestamp(),
+                            lastOpenedByTelegramId: openerTelegramId,
                             lastSeenAt: FieldValue.serverTimestamp()
                         }, { merge: true });
                     }
+                    return existingBoundId;
+                }
 
-                    return primaryId;
-                });
+                const primaryId = verifiedUserId;
 
-                activeAccountId = String(resolvedId || openerTelegramId);
-            } catch (err) {
-                console.warn('Device/IP transaction fallback:', err.message);
-                activeAccountId = verifiedUserId;
-            }
-
-            userTaskStatuses = { ...loadLocalUserTasks(), ...userTaskStatuses };
-
-            const boundUserRef = db.collection('users').doc(activeAccountId);
-            try {
-                const boundSnap = await boundUserRef.get();
-                if (boundSnap.exists) {
-                    const boundData = boundSnap.data() || {};
-                    activeDisplayName = boundData.name || openerUserName;
-                    activeDisplayHandle = boundData.handle || openerUserHandle;
-
-                    if (currentIpAddress && !boundData.ipAddress) {
-                        await boundUserRef.set({ ipAddress: currentIpAddress }, { merge: true });
-                    }
-
-                    if (!boundData.referrerId && startParamRef && startParamRef !== activeAccountId && startParamRef !== openerTelegramId) {
-                        const uplinerSnap = await db.collection('users').doc(startParamRef).get();
-                        const refName = uplinerSnap.exists ? (uplinerSnap.data().name || startParamRef) : startParamRef;
-                        await boundUserRef.set({
-                            referrerId: startParamRef,
-                            referrer: refName
-                        }, { merge: true });
-                        await createAdminReferralRecord(startParamRef, true);
-                    } else if (boundData.referrerId) {
-                        await createAdminReferralRecord(boundData.referrerId, false);
-                    }
-                } else {
-                    await boundUserRef.set({
+                if (!userSnap.exists) {
+                    const newUserDoc = {
                         name: openerUserName,
                         handle: openerUserHandle,
                         mobile: '',
                         balance: 0,
                         earned: 0,
                         withdrawn: 0,
-                        referrer: startParamRef && startParamRef !== activeAccountId ? startParamRef : null,
-                        referrerId: startParamRef && startParamRef !== activeAccountId ? startParamRef : null,
+                        referrer: null,
+                        referrerId: null,
                         referralsCount: 0,
                         boundDeviceId: currentDeviceId,
                         deviceHash: currentDeviceHash,
                         ipAddress: currentIpAddress || '',
+                        deviceLockedAt: FieldValue.serverTimestamp(),
                         createdAt: FieldValue.serverTimestamp()
-                    }, { merge: true });
-                    if (startParamRef && startParamRef !== activeAccountId) {
-                        await createAdminReferralRecord(startParamRef, true);
+                    };
+
+                    if (startParamRef && startParamRef !== primaryId) {
+                        newUserDoc.referrerId = startParamRef;
+                        newUserDoc.referrer = startParamRef;
                     }
+                    tx.set(userRef, newUserDoc, { merge: true });
+                } else {
+                    tx.set(userRef, {
+                        name: openerUserName,
+                        handle: openerUserHandle,
+                        boundDeviceId: userSnap.data()?.boundDeviceId || currentDeviceId,
+                        deviceHash: currentDeviceHash,
+                        ipAddress: currentIpAddress || userSnap.data()?.ipAddress || ''
+                    }, { merge: true });
                 }
-            } catch (err) {
-                console.warn('Bound user sync note:', err.message);
+
+                tx.set(deviceRef, {
+                    deviceId: currentDeviceId,
+                    deviceHash: currentDeviceHash,
+                    boundUserId: primaryId,
+                    boundUserName: openerUserName,
+                    ipAddress: currentIpAddress || '',
+                    createdAt: FieldValue.serverTimestamp(),
+                    lastSeenAt: FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                if (ipRef) {
+                    tx.set(ipRef, {
+                        ipAddress: currentIpAddress,
+                        boundUserId: primaryId,
+                        boundUserName: openerUserName,
+                        boundDeviceId: currentDeviceId,
+                        createdAt: FieldValue.serverTimestamp(),
+                        lastSeenAt: FieldValue.serverTimestamp()
+                    }, { merge: true });
+                }
+
+                return primaryId;
+            });
+
+            if (resolvedId !== verifiedUserId) {
+                throw new Error("LOCKED_OTHER_USER: One Device = One ID. This device or IP is bound to another account.");
+            }
+
+            activeAccountId = verifiedUserId;
+            userTaskStatuses = { ...loadLocalUserTasks(), ...userTaskStatuses };
+
+            const boundUserRef = db.collection('users').doc(activeAccountId);
+            const boundSnap = await boundUserRef.get();
+            if (boundSnap.exists) {
+                const boundData = boundSnap.data() || {};
+                activeDisplayName = boundData.name || openerUserName;
+                activeDisplayHandle = boundData.handle || openerUserHandle;
+
+                if (currentIpAddress && !boundData.ipAddress) {
+                    await boundUserRef.set({ ipAddress: currentIpAddress }, { merge: true });
+                }
+
+                if (!boundData.referrerId && startParamRef && startParamRef !== activeAccountId && startParamRef !== openerTelegramId) {
+                    const uplinerSnap = await db.collection('users').doc(startParamRef).get();
+                    const refName = uplinerSnap.exists ? (uplinerSnap.data().name || startParamRef) : startParamRef;
+                    await boundUserRef.set({
+                        referrerId: startParamRef,
+                        referrer: refName
+                    }, { merge: true });
+                    await createAdminReferralRecord(startParamRef, true);
+                } else if (boundData.referrerId) {
+                    await createAdminReferralRecord(boundData.referrerId, false);
+                }
+            } else {
+                await boundUserRef.set({
+                    name: openerUserName,
+                    handle: openerUserHandle,
+                    mobile: '',
+                    balance: 0,
+                    earned: 0,
+                    withdrawn: 0,
+                    referrer: startParamRef && startParamRef !== activeAccountId ? startParamRef : null,
+                    referrerId: startParamRef && startParamRef !== activeAccountId ? startParamRef : null,
+                    referralsCount: 0,
+                    boundDeviceId: currentDeviceId,
+                    deviceHash: currentDeviceHash,
+                    ipAddress: currentIpAddress || '',
+                    createdAt: FieldValue.serverTimestamp()
+                }, { merge: true });
+                if (startParamRef && startParamRef !== activeAccountId) {
+                    await createAdminReferralRecord(startParamRef, true);
+                }
             }
 
             initUserData();
@@ -1704,10 +1768,15 @@
 
             } catch (error) {
                 console.error("App startup failed:", error);
+                const msg = String(error?.message || "Unknown error");
+                if (msg.startsWith("LOCKED_") || msg.includes("bound to another account") || msg.includes("locked to another device")) {
+                    showHardDeviceLockScreen(msg.replace(/^LOCKED_[A-Z_]+:\s*/, ""));
+                    return;
+                }
                 document.body.innerHTML =
                     '<div style="padding:25px;text-align:center;color:#fff;background:#111;min-height:100vh;">' +
                     '<h2>Login Error</h2><p>' +
-                    (error.message || "Unknown error") +
+                    escapeHtml(msg) +
                     '</p></div>';
             }
         };
