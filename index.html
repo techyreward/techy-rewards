@@ -37,6 +37,7 @@
     </script>
     <!-- Firebase v10 Compat SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <!-- Google Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -805,10 +806,39 @@
             firebase.initializeApp(firebaseConfig);
         }
         const db = firebase.firestore();
+        const auth = firebase.auth();
         try {
             db.settings({ experimentalAutoDetectLongPolling: true });
         } catch (_) {}
         const { FieldValue } = firebase.firestore;
+
+        async function authenticateTelegramUser() {
+          const tg = window.Telegram?.WebApp;
+
+          if (!tg || !tg.initData) {
+            throw new Error("Please open this app through Telegram.");
+          }
+
+          const response = await fetch("https://techy-auth.studywithkhan3667.workers.dev/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ initData: tg.initData })
+          });
+
+          const result = await response.json();
+
+          if (!response.ok || !result.success || !result.customToken) {
+            throw new Error("Telegram authentication failed.");
+          }
+
+          await auth.signInWithCustomToken(result.customToken);
+
+          if (!auth.currentUser) {
+            throw new Error("Firebase login failed.");
+          }
+
+          return auth.currentUser.uid;
+        }
 
         // ==================== TELEGRAM USER, DEVICE & REFERRAL EXTRACTION ====================
         let currentTelegramUser = null;
@@ -887,30 +917,33 @@
             return currentDeviceHash;
         }
 
-        if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
-            const initUnsafe = window.Telegram.WebApp.initDataUnsafe || {};
-            if (initUnsafe.user) {
-                currentTelegramUser = initUnsafe.user;
-            }
-            startParamRef = extractReferralCode(initUnsafe.start_param);
-        } else {
-            startParamRef = extractReferralCode('');
+        if (!window.Telegram?.WebApp || !window.Telegram.WebApp.initData) {
+            document.body.innerHTML =
+                '<h2 style="text-align:center;margin-top:50px;">Please open Techy Rewards through Telegram.</h2>';
+            throw new Error("Telegram login required");
         }
 
-        if (!currentTelegramUser) {
-            let savedGuestId = localStorage.getItem('techy_guest_uid');
-            if (!savedGuestId) {
-                savedGuestId = 'guest_' + Math.floor(100000 + Math.random() * 900000);
-                localStorage.setItem('techy_guest_uid', savedGuestId);
-            }
-            currentTelegramUser = { id: savedGuestId, first_name: 'TechyUser', username: '' };
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+
+        const telegramData = window.Telegram.WebApp.initDataUnsafe || {};
+
+        currentTelegramUser = telegramData.user || null;
+
+        if (!currentTelegramUser || !currentTelegramUser.id) {
+            throw new Error("Telegram user not found");
         }
+
+        startParamRef = extractReferralCode(telegramData.start_param);
 
         const openerTelegramId = String(currentTelegramUser.id);
-        const openerUserName = [currentTelegramUser.first_name, currentTelegramUser.last_name].filter(Boolean).join(' ') || 'TechyUser';
-        const openerUserHandle = currentTelegramUser.username ? `@${currentTelegramUser.username}` : '';
+        const openerUserName =
+            [currentTelegramUser.first_name, currentTelegramUser.last_name]
+            .filter(Boolean).join(' ') || 'TechyUser';
+
+        const openerUserHandle = currentTelegramUser.username
+            ? `@${currentTelegramUser.username}`
+            : '';
 
         let activeAccountId = openerTelegramId;
         let activeDisplayName = openerUserName;
@@ -1172,6 +1205,12 @@
 
         // ==================== ONE-DEVICE & ONE-IP ACCOUNT FIRESTORE BINDING ====================
         async function resolveAndBindDeviceAccount() {
+            const verifiedUserId = auth.currentUser?.uid;
+
+            if (!verifiedUserId) {
+                throw new Error("User is not authenticated");
+            }
+
             currentDeviceId = await getOrCreateDeviceId();
             currentIpAddress = await fetchPublicIpAddress();
             const deviceRef = db.collection('devices').doc(currentDeviceId);
@@ -1190,8 +1229,8 @@
                     }
 
                     if (existingBoundId) {
-                        if (existingBoundId !== openerTelegramId) {
-                            // Original account login remains enforced; popup alert removed.
+                        if (existingBoundId !== verifiedUserId) {
+                            throw new Error("This device or IP is bound to another account.");
                         }
 
                         tx.set(deviceRef, {
@@ -1216,7 +1255,7 @@
                         return existingBoundId;
                     }
 
-                    const primaryId = openerTelegramId;
+                    const primaryId = verifiedUserId;
                     const userRef = db.collection('users').doc(primaryId);
                     const userSnap = await tx.get(userRef);
 
@@ -1279,7 +1318,7 @@
                 activeAccountId = String(resolvedId || openerTelegramId);
             } catch (err) {
                 console.warn('Device/IP transaction fallback:', err.message);
-                activeAccountId = openerTelegramId;
+                activeAccountId = verifiedUserId;
             }
 
             userTaskStatuses = { ...loadLocalUserTasks(), ...userTaskStatuses };
@@ -1638,18 +1677,36 @@
         }
 
         window.onload = async function() {
-            if (window.Telegram && window.Telegram.WebApp) {
-                window.Telegram.WebApp.ready();
-                window.Telegram.WebApp.expand();
+            try {
+                if (window.Telegram?.WebApp) {
+                    window.Telegram.WebApp.ready();
+                    window.Telegram.WebApp.expand();
+                }
+
+                await authenticateTelegramUser();
+
+                activeAccountId = auth.currentUser.uid;
+
+                await resolveAndBindDeviceAccount();
+
+                if (activeAccountId !== auth.currentUser.uid) {
+                    throw new Error("Account ID mismatch");
+                }
+
+                startFirestoreSync();
+
+                renderTasks();
+                renderMyOffers();
+                renderReferrals();
+                renderWalletTransactions();
+                renderEarningHistory();
+                switchTab('home');
+
+            } catch (error) {
+                console.error("App startup failed:", error);
+                document.body.innerHTML =
+                    '<h2 style="text-align:center;margin-top:50px;">Login failed. Please reopen through Telegram.</h2>';
             }
-            renderTasks();
-            renderMyOffers();
-            renderReferrals();
-            renderWalletTransactions();
-            renderEarningHistory();
-            switchTab('home');
-            await resolveAndBindDeviceAccount();
-            startFirestoreSync();
         };
 
         function initUserData() {
