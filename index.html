@@ -1705,7 +1705,10 @@
             } catch (error) {
                 console.error("App startup failed:", error);
                 document.body.innerHTML =
-                    '<h2 style="text-align:center;margin-top:50px;">Login failed. Please reopen through Telegram.</h2>';
+                    '<div style="padding:25px;text-align:center;color:#fff;background:#111;min-height:100vh;">' +
+                    '<h2>Login Error</h2><p>' +
+                    (error.message || "Unknown error") +
+                    '</p></div>';
             }
         };
 
