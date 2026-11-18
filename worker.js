@@ -68,8 +68,8 @@ export default {
       }
 
       const secretKey = await hmac(
-        encoder.encode("WebAppData"),
-        env.TELEGRAM_BOT_TOKEN
+        encoder.encode(env.TELEGRAM_BOT_TOKEN),
+        "WebAppData"
       );
 
       const calculatedHash = [...await hmac(secretKey, checkString)]
