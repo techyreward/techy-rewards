@@ -29,7 +29,27 @@ export default {
     }
 
     try {
-      const body = await request.json();
+      try {
+  const body = await request.json();
+
+  if (body.action === "verify_token") {
+    const authHeader = request.headers.get("Authorization") || "";
+    const idToken = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : "";
+
+    const verified = await verifyFirebaseIdToken(idToken, env);
+
+    return new Response(JSON.stringify({
+      success: true,
+      uid: verified.uid
+    }), {
+      status: 200,
+      headers
+    });
+  }
+
+  const initData = body.initData;
 
 if (body.action === "verify_token") {
   const authHeader = request.headers.get("Authorization") || "";
