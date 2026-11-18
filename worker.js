@@ -157,11 +157,15 @@ export default {
         customToken
       }), { status: 200, headers });
 
-    } catch (error) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: "Login verification failed"
-      }), { status: 401, headers });
+      } catch (error) {
+  console.error("Techy Auth Error:", error);
+
+  return new Response(JSON.stringify({
+    success: false,
+    error: "Login verification failed",
+    detail: String(error.message || "Unknown error")
+  }), { status: 401, headers });
+      
     }
   }
 };
