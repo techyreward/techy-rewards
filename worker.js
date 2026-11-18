@@ -1,17 +1,20 @@
-
-const corsOrigin = "https://techyreward.github.io";
+const allowedOrigins = [
+  "https://techyreward.github.io",
+  "https://techyrewards.github.io"
+];
 
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin");
     const headers = {
-      "Access-Control-Allow-Origin": corsOrigin,
+      "Access-Control-Allow-Origin": allowedOrigins.includes(origin) ? origin : "null",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Vary": "Origin",
       "Content-Type": "application/json"
     };
-    
-    if (origin !== corsOrigin) {
+
+    if (!allowedOrigins.includes(origin)) {
       return new Response("Forbidden", { status: 403 });
     }
 
@@ -157,15 +160,14 @@ export default {
         customToken
       }), { status: 200, headers });
 
-      } catch (error) {
-  console.error("Techy Auth Error:", error);
+    } catch (error) {
+      console.error("Techy Auth Error:", error);
 
-  return new Response(JSON.stringify({
-    success: false,
-    error: "Login verification failed",
-    detail: String(error.message || "Unknown error")
-  }), { status: 401, headers });
-      
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Login verification failed",
+        detail: String(error.message || "Unknown error")
+      }), { status: 401, headers });
     }
   }
 };
