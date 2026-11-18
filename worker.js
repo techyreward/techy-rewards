@@ -1,13 +1,53 @@
+
 const allowedOrigins = [
   "https://techyreward.github.io",
   "https://techyrewards.github.io"
 ];
 
+async function verifyFirebaseIdToken(idToken, env) {
+  if (
+    typeof idToken !== "string" ||
+    idToken.length > 10000 ||
+    !idToken
+  ) {
+    throw new Error("Invalid Firebase ID token");
+  }
+
+  if (!env.FIREBASE_WEB_API_KEY) {
+    throw new Error("Firebase API key missing");
+  }
+
+  const response = await fetch(
+    "https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=" +
+    encodeURIComponent(env.FIREBASE_WEB_API_KEY),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Firebase authentication failed");
+  }
+
+  const data = await response.json();
+  const account = data.users?.[0];
+
+  if (!account || !account.localId || account.disabled === true) {
+    throw new Error("Invalid or disabled Firebase user");
+  }
+
+  return { uid: account.localId };
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin");
+
     const headers = {
-      "Access-Control-Allow-Origin": allowedOrigins.includes(origin) ? origin : "null",
+      "Access-Control-Allow-Origin":
+        allowedOrigins.includes(origin) ? origin : "null",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Vary": "Origin",
@@ -24,52 +64,37 @@ export default {
 
     if (request.method !== "POST") {
       return new Response("Method not allowed", {
-        status: 405, headers
+        status: 405,
+        headers
       });
     }
 
     try {
-      try {
-  const body = await request.json();
+      const body = await request.json();
 
-  if (body.action === "verify_token") {
-    const authHeader = request.headers.get("Authorization") || "";
-    const idToken = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : "";
+      // Firebase ID-token verification endpoint
+      if (body.action === "verify_token") {
+        const authHeader =
+          request.headers.get("Authorization") || "";
 
-    const verified = await verifyFirebaseIdToken(idToken, env);
+        const idToken = authHeader.startsWith("Bearer ")
+          ? authHeader.slice(7)
+          : "";
 
-    return new Response(JSON.stringify({
-      success: true,
-      uid: verified.uid
-    }), {
-      status: 200,
-      headers
-    });
-  }
+        const verified = await verifyFirebaseIdToken(idToken, env);
 
-  const initData = body.initData;
+        return new Response(JSON.stringify({
+          success: true,
+          uid: verified.uid
+        }), {
+          status: 200,
+          headers
+        });
+      }
 
-if (body.action === "verify_token") {
-  const authHeader = request.headers.get("Authorization") || "";
-  const idToken = authHeader.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : "";
+      // Existing Telegram login
+      const initData = body.initData;
 
-  const verified = await verifyFirebaseIdToken(idToken, env);
-
-  return new Response(JSON.stringify({
-    success: true,
-    uid: verified.uid
-  }), {
-    status: 200,
-    headers
-  });
-}
-
-const initData = body.initData;
-      
       if (typeof initData !== "string" || initData.length > 10000) {
         throw new Error("Invalid login data");
       }
@@ -84,6 +109,7 @@ const initData = body.initData;
       }
 
       const now = Math.floor(Date.now() / 1000);
+
       if (authDate > now + 60 || now - authDate > 86400) {
         throw new Error("Login data expired");
       }
@@ -99,12 +125,19 @@ const initData = body.initData;
 
       async function hmac(keyBytes, message) {
         const key = await crypto.subtle.importKey(
-          "raw", keyBytes,
+          "raw",
+          keyBytes,
           { name: "HMAC", hash: "SHA-256" },
-          false, ["sign"]
+          false,
+          ["sign"]
         );
+
         return new Uint8Array(
-          await crypto.subtle.sign("HMAC", key, encoder.encode(message))
+          await crypto.subtle.sign(
+            "HMAC",
+            key,
+            encoder.encode(message)
+          )
         );
       }
 
@@ -113,7 +146,9 @@ const initData = body.initData;
         env.TELEGRAM_BOT_TOKEN
       );
 
-      const calculatedHash = [...await hmac(secretKey, checkString)]
+      const calculatedHash = [
+        ...await hmac(secretKey, checkString)
+      ]
         .map(b => b.toString(16).padStart(2, "0"))
         .join("");
 
@@ -128,9 +163,14 @@ const initData = body.initData;
       }
 
       const user = JSON.parse(userText);
-      if (!user.id) throw new Error("Invalid Telegram user");
 
-      const service = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON);
+      if (!user.id) {
+        throw new Error("Invalid Telegram user");
+      }
+
+      const service = JSON.parse(
+        env.FIREBASE_SERVICE_ACCOUNT_JSON
+      );
 
       if (
         service.project_id !== env.FIREBASE_PROJECT_ID ||
@@ -144,8 +184,13 @@ const initData = body.initData;
         const bytes = typeof value === "string"
           ? encoder.encode(value)
           : value;
+
         let binary = "";
-        for (const b of bytes) binary += String.fromCharCode(b);
+
+        for (const b of bytes) {
+          binary += String.fromCharCode(b);
+        }
+
         return btoa(binary)
           .replace(/\+/g, "-")
           .replace(/\//g, "_")
@@ -158,20 +203,27 @@ const initData = body.initData;
         .replace(/\s/g, "");
 
       const keyBytes = Uint8Array.from(
-        atob(pem), c => c.charCodeAt(0)
+        atob(pem),
+        c => c.charCodeAt(0)
       );
 
       const privateKey = await crypto.subtle.importKey(
         "pkcs8",
         keyBytes,
-        { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+        {
+          name: "RSASSA-PKCS1-v1_5",
+          hash: "SHA-256"
+        },
         false,
         ["sign"]
       );
 
       const issuedAt = Math.floor(Date.now() / 1000);
 
-      const jwtHeader = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+      const jwtHeader = base64url(
+        JSON.stringify({ alg: "RS256", typ: "JWT" })
+      );
+
       const jwtPayload = base64url(JSON.stringify({
         iss: service.client_email,
         sub: service.client_email,
@@ -191,12 +243,16 @@ const initData = body.initData;
         )
       );
 
-      const customToken = `${unsigned}.${base64url(signature)}`;
+      const customToken =
+        `${unsigned}.${base64url(signature)}`;
 
       return new Response(JSON.stringify({
         success: true,
         customToken
-      }), { status: 200, headers });
+      }), {
+        status: 200,
+        headers
+      });
 
     } catch (error) {
       console.error("Techy Auth Error:", error);
@@ -205,7 +261,10 @@ const initData = body.initData;
         success: false,
         error: "Login verification failed",
         detail: String(error.message || "Unknown error")
-      }), { status: 401, headers });
+      }), {
+        status: 401,
+        headers
+      });
     }
   }
 };
