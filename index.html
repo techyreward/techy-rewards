@@ -1047,9 +1047,13 @@
                 storedId = localStorage.getItem(DEVICE_STORAGE_KEY) || '';
             } catch (_) {}
 
-            const finalDeviceId = currentDeviceHash || storedId;
+            // Prefer persisted device ID so WebView/Chrome updates or viewport shifts
+            // don't change the user's device ID on their original device.
+            const finalDeviceId = storedId || currentDeviceHash;
             try {
-                localStorage.setItem(DEVICE_STORAGE_KEY, finalDeviceId);
+                if (finalDeviceId) {
+                    localStorage.setItem(DEVICE_STORAGE_KEY, finalDeviceId);
+                }
             } catch (_) {}
             return finalDeviceId;
         }
@@ -1368,15 +1372,18 @@
                 const ipBoundUser = ipData?.boundUserId ? String(ipData.boundUserId).trim() : '';
                 const ipBoundDevice = ipData?.boundDeviceId ? String(ipData.boundDeviceId).trim() : '';
 
-                // 1) If this user already has a bound device, enforce that exact device
-                if (userBoundDevice && userBoundDevice !== currentDeviceId) {
-                    throw new Error("LOCKED_OTHER_DEVICE: This account is locked to another device.");
-                }
-
-                // 2) If this device is already bound in `devices`, enforce `One Device = One ID`
+                // 1) If this device is already bound in `devices`, enforce `One Device = One ID`
                 if (deviceBoundUser) {
                     if (deviceBoundUser !== verifiedUserId) {
                         throw new Error("LOCKED_OTHER_USER: One Device = One ID. This device is bound to another account.");
+                    }
+
+                    // Device is verified as belonging to this user: reconcile userBoundDevice if needed
+                    if (userBoundDevice !== currentDeviceId) {
+                        tx.set(userRef, {
+                            boundDeviceId: currentDeviceId,
+                            deviceHash: currentDeviceHash
+                        }, { merge: true });
                     }
 
                     tx.set(deviceRef, {
@@ -1401,12 +1408,21 @@
                     return verifiedUserId;
                 }
 
-                // 3) Device is NOT bound yet: check IP lock ONLY when the user is NOT already
-                //    bound to this device and the IP is bound to a different user + different device.
+                // 2) Device doc is NOT bound yet: if user has a different boundDeviceId,
+                //    check if this is the same device reclaiming after a WebView hash shift
+                //    (same IP as ipLocks for this user, or same deviceHash) vs genuinely another device.
+                if (userBoundDevice && userBoundDevice !== currentDeviceId) {
+                    const sameUserIp = Boolean(ipBoundUser && ipBoundUser === verifiedUserId);
+                    const sameStoredHash = Boolean(userData?.deviceHash && userData.deviceHash === currentDeviceHash);
+                    if (!sameUserIp && !sameStoredHash) {
+                        throw new Error("LOCKED_OTHER_DEVICE: This account is locked to another device.");
+                    }
+                }
+
+                // 3) Check IP lock ONLY when this user doesn't already own this device/account
+                //    and the IP belongs to a different user on a different device.
                 const userOwnsThisDevice = Boolean(userBoundDevice && userBoundDevice === currentDeviceId);
                 if (!userOwnsThisDevice && ipBoundUser && ipBoundUser !== verifiedUserId) {
-                    // Only block on IP if the IP lock also belongs to another device (or no device info),
-                    // never lock out the original account if its own user record already exists on this device.
                     if (!ipBoundDevice || ipBoundDevice !== currentDeviceId) {
                         throw new Error("LOCKED_OTHER_USER: One Device = One ID. This network is bound to another account.");
                     }
