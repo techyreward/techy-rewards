@@ -2268,68 +2268,50 @@
             selectedTaskId = null;
         }
 
-        function createAutoRedirectPageUrl(targetUrl) {
-            const safeJsonUrl = JSON.stringify(targetUrl);
-            const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Techy Rewards — Redirecting</title>
-<style>
-  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; background:#f8fafc; font-family:Inter,system-ui,sans-serif; color:#0f172a; }
-  .box { background:#fff; border:1px solid #e2e8f0; border-radius:28px; padding:32px 24px; max-width:320px; width:90%; text-align:center; box-shadow:0 20px 40px rgba(15,23,42,.08); }
-  .icon { width:64px; height:64px; border-radius:20px; margin:0 auto 16px; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#10b981,#0d9488); color:#fff; font-size:28px; font-weight:900; }
-  .title { font-size:18px; font-weight:800; margin:0 0 6px; }
-  .sub { font-size:12px; color:#64748b; margin:0; }
-</style>
-</head>
-<body>
-  <div class="box">
-    <div class="icon">⚡</div>
-    <h1 class="title">Redirecting...</h1>
-    <p class="sub">Taking you to your offer destination</p>
-  </div>
-  <script>
-    (function() {
-      const dest = ${safeJsonUrl};
-      setTimeout(function() {
-        if (dest && dest !== '#') {
-          window.location.replace(dest);
-        }
-      }, 150);
-    })();
-  </script>
-</body>
-</html>`;
-            const blob = new Blob([html], { type: 'text/html' });
-            return URL.createObjectURL(blob);
-        }
-
         function showBoltRedirectScreen(destinationUrl, label = 'Redirecting...') {
             if (!destinationUrl || destinationUrl === '#') return;
             const formattedUrl = /^https?:\/\//i.test(destinationUrl) ? destinationUrl : `https://${destinationUrl}`;
-            let redirectPageUrl = '';
-            try {
-                redirectPageUrl = createAutoRedirectPageUrl(formattedUrl);
-            } catch (_) {
-                redirectPageUrl = formattedUrl;
-            }
 
-            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
-                window.Telegram.WebApp.openLink(redirectPageUrl);
-            } else {
-                const win = window.open(redirectPageUrl, '_blank', 'noopener,noreferrer');
-                if (!win) {
-                    window.location.href = formattedUrl;
+            // Show an in-app redirect screen briefly while firing the final tracked/non-affiliate destination
+            // directly in the browser/Telegram WebView without passing a blob: URL that gets blocked.
+            let overlay = document.getElementById('boltRedirectScreen');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'boltRedirectScreen';
+                overlay.className = 'fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-5';
+                overlay.innerHTML = `
+                    <div class="bg-white rounded-3xl max-w-xs w-full p-6 text-center space-y-4 shadow-2xl border border-emerald-200/80">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center text-2xl mx-auto shadow-md shadow-emerald-500/25">
+                            <i class="fa-solid fa-bolt animate-pulse"></i>
+                        </div>
+                        <div class="space-y-1">
+                            <span class="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full uppercase tracking-wider">Techy Rewards</span>
+                            <h3 id="boltRedirectTitle" class="text-lg font-black text-slate-900 pt-1">Redirecting...</h3>
+                            <p class="text-xs text-slate-500 font-medium leading-relaxed">Please wait while we prepare your offer.</p>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+            }
+            const titleEl = document.getElementById('boltRedirectTitle');
+            if (titleEl) titleEl.innerText = label || 'Redirecting...';
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+
+            setTimeout(() => {
+                if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.openLink === 'function') {
+                    window.Telegram.WebApp.openLink(formattedUrl);
+                } else {
+                    const win = window.open(formattedUrl, '_blank', 'noopener,noreferrer');
+                    if (!win) {
+                        window.location.href = formattedUrl;
+                    }
                 }
-            }
-
-            if (redirectPageUrl && redirectPageUrl.startsWith('blob:')) {
                 setTimeout(() => {
-                    try { URL.revokeObjectURL(redirectPageUrl); } catch (_) {}
-                }, 15000);
-            }
+                    overlay.classList.add('hidden');
+                    overlay.classList.remove('flex');
+                }, 800);
+            }, 220);
         }
 
         function buildTrackingOfferUrl(rawUrl, taskId) {
