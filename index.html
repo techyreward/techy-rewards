@@ -80,6 +80,31 @@
         </div>
     </div>
 
+    <!-- FIRST LAUNCH TERMS & CONDITIONS GATE OVERLAY -->
+    <div id="firstLaunchTermsScreen" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-5">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-emerald-200 max-h-[88vh] flex flex-col justify-between">
+            <div class="space-y-2 text-center">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center text-xl mx-auto shadow-md">
+                    <i class="fa-solid fa-file-contract"></i>
+                </div>
+                <span class="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full uppercase tracking-wider">Welcome • First Launch</span>
+                <h2 class="text-lg font-black text-slate-900">Terms &amp; Conditions</h2>
+                <p class="text-[11px] text-slate-500 font-medium">Please review and accept our rules to continue.</p>
+            </div>
+
+            <div class="overflow-y-auto space-y-2.5 text-xs text-slate-700 leading-relaxed bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 my-2">
+                <p><strong>1. Earnings &amp; Verification:</strong> Rewards are subject to advertiser verification and anti-fraud checks. We do not guarantee fixed income.</p>
+                <p><strong>2. One Device = One ID:</strong> Each device and account must remain unique; cloners, VPNs, or multiple accounts are not allowed.</p>
+                <p><strong>3. Referral Eligibility:</strong> Referral commission applies on your friend's first 3 approved tasks once your friend completes either <strong>3 unique simple tasks</strong> OR <strong>1 Prime task</strong>.</p>
+                <p><strong>4. Withdrawals:</strong> Payouts are processed within 24–48 hours to valid UPI IDs or Gift Card emails.</p>
+            </div>
+
+            <button id="agreeFirstLaunchBtn" type="button" onclick="acceptFirstLaunchTerms()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 text-white font-black py-3.5 rounded-2xl text-xs transition shadow-lg shadow-emerald-500/25 shrink-0">
+                I Agree &amp; Continue
+            </button>
+        </div>
+    </div>
+
     <!-- FULL PAGE TASK DETAIL VIEW -->
     <div id="taskDetailScreen" class="fixed inset-0 bg-[#f8fafc] z-50 hidden overflow-y-auto flex flex-col justify-between p-5">
         <div class="max-w-md mx-auto w-full flex-1 flex flex-col justify-between space-y-4 pb-6">
@@ -420,7 +445,7 @@
                         </li>
                         <li class="flex items-start">
                             <span class="text-emerald-600 font-bold mr-2">•</span>
-                            <span>Friend must complete at least <strong class="text-slate-900">3 Simple Tasks</strong> OR <strong class="text-slate-900">1 Prime Task</strong>.</span>
+                            <span>Friend must complete at least <strong class="text-slate-900">3 Unique Simple Tasks</strong> OR <strong class="text-slate-900">1 Prime Task</strong> to unlock referral earnings.</span>
                         </li>
                     </ul>
                 </div>
@@ -1179,13 +1204,14 @@
                     });
 
                 const approved = Array.from(uniqueApproved.values());
-                const tasksCompleted = approved.length;
+                const uniqueTasksCompleted = approved.length;
                 const primeTasksCompleted = approved.filter((s) => {
                     const cat = String(s.category || '').toLowerCase();
-                    return cat === 'kyc' || cat === 'prime' || s.isPrime === true;
+                    return cat === 'kyc' || cat === 'prime' || s.isPrime === true || s.primeBadge === true;
                 }).length;
 
-                const isQualified = tasksCompleted >= 3 || primeTasksCompleted >= 1;
+                const isQualified = uniqueTasksCompleted >= 3 || primeTasksCompleted >= 1;
+                const tasksCompleted = uniqueTasksCompleted;
                 const friendEarned = approved.reduce((sum, s) => sum + Number(s.reward || 0), 0);
                 const refPct = Number(appSettings.referralPercent || 50);
                 const computedComm = isQualified
@@ -1765,6 +1791,7 @@
                 renderWalletTransactions();
                 renderEarningHistory();
                 switchTab('home');
+                checkFirstLaunchTermsGate();
 
             } catch (error) {
                 console.error("App startup failed:", error);
@@ -2160,21 +2187,21 @@
         }
 
         function buildTrackingOfferUrl(rawUrl, taskId) {
-            if (!rawUrl || rawUrl === '#') return '#';
-            let formattedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
             const trackingId = `u_${encodeURIComponent(String(activeAccountId))}__o_${encodeURIComponent(String(taskId))}__${Date.now()}`;
+            if (!rawUrl || rawUrl === '#') return { trackingId, url: '#' };
+            let formattedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
             if (/\{p1\}/i.test(formattedUrl)) {
-                return formattedUrl.replace(/\{p1\}/gi, encodeURIComponent(trackingId));
+                return { trackingId, url: formattedUrl.replace(/\{p1\}/gi, encodeURIComponent(trackingId)) };
             }
             if (/\{aff_click_id\}/i.test(formattedUrl)) {
-                return formattedUrl.replace(/\{aff_click_id\}/gi, encodeURIComponent(trackingId));
+                return { trackingId, url: formattedUrl.replace(/\{aff_click_id\}/gi, encodeURIComponent(trackingId)) };
             }
             const hasPlaceholder = /\{(user_id|subid|click_id|task_id)\}/i.test(formattedUrl);
             if (hasPlaceholder) {
                 formattedUrl = formattedUrl
                     .replace(/\{(user_id|subid|click_id)\}/gi, encodeURIComponent(activeAccountId))
                     .replace(/\{task_id\}/gi, encodeURIComponent(taskId));
-                return formattedUrl;
+                return { trackingId, url: formattedUrl };
             }
             try {
                 const u = new URL(formattedUrl);
@@ -2182,21 +2209,21 @@
                     if (!u.searchParams.has('p1')) {
                         u.searchParams.set('p1', trackingId);
                     }
-                    return u.toString();
+                    return { trackingId, url: u.toString() };
                 }
                 if (u.searchParams.has('aff_click_id') && !u.searchParams.get('aff_click_id')) {
                     u.searchParams.set('aff_click_id', trackingId);
-                    return u.toString();
+                    return { trackingId, url: u.toString() };
                 }
                 if (!u.searchParams.has('subid') && !u.searchParams.has('sub_id')) {
                     u.searchParams.set('subid', `${activeAccountId}_${taskId}`);
                 }
-                return u.toString();
+                return { trackingId, url: u.toString() };
             } catch (_) {
                 if (formattedUrl.endsWith('aff_click_id=')) {
-                    return `${formattedUrl}${encodeURIComponent(trackingId)}`;
+                    return { trackingId, url: `${formattedUrl}${encodeURIComponent(trackingId)}` };
                 }
-                return formattedUrl;
+                return { trackingId, url: formattedUrl };
             }
         }
 
@@ -2220,12 +2247,16 @@
                 return;
             }
 
+            const { trackingId, url: trackedUrl } = buildTrackingOfferUrl(task.link, task.id);
+
             const startedRecord = {
                 userId: activeAccountId,
                 openedByTelegramId: openerTelegramId,
                 deviceId: currentDeviceId,
                 ipAddress: currentIpAddress || '',
                 offerId: task.id,
+                offerName: task.title,
+                affClickId: trackingId,
                 status: 'started',
                 offerSnapshot: {
                     title: task.title, desc: task.desc, category: task.category, isPrime: Boolean(task.isPrime), tag: task.tag,
@@ -2238,18 +2269,29 @@
             userTaskStatuses[task.id] = startedRecord;
             saveLocalUserTasks(userTaskStatuses);
 
-            const trackedUrl = buildTrackingOfferUrl(task.link, task.id);
             closeTaskDetail();
             renderTasks();
             renderMyOffers();
 
             try {
-                await db.collection('userTasks').doc(`${activeAccountId}_${task.id}`).set({
-                    ...startedRecord,
-                    startedAt: FieldValue.serverTimestamp()
-                }, { merge: true });
+                await Promise.all([
+                    db.collection('userTasks').doc(`${activeAccountId}_${task.id}`).set({
+                        ...startedRecord,
+                        startedAt: FieldValue.serverTimestamp()
+                    }, { merge: true }),
+                    db.collection('offerClicks').doc(trackingId).set({
+                        affClickId: trackingId,
+                        userId: activeAccountId,
+                        userName: activeDisplayName,
+                        offerId: task.id,
+                        offerName: task.title,
+                        status: 'clicked',
+                        date: formatNowDate(),
+                        createdAt: FieldValue.serverTimestamp()
+                    })
+                ]);
             } catch (err) {
-                console.warn('userTasks write:', err.message);
+                console.warn('Click/task write:', err.message);
             }
 
             if (trackedUrl && trackedUrl !== '#') {
@@ -3024,6 +3066,41 @@
 
         function closeTermsModal() {
             document.getElementById('termsScreen').classList.add('hidden');
+        }
+
+        function getFirstLaunchTermsKey() {
+            return `techy_terms_agreed_${activeAccountId || openerTelegramId || 'default'}`;
+        }
+
+        function checkFirstLaunchTermsGate() {
+            try {
+                const agreedLocal = localStorage.getItem(getFirstLaunchTermsKey()) === '1';
+                const agreedProfile = userProfile && userProfile.termsAccepted === true;
+                if (!agreedLocal && !agreedProfile) {
+                    const gate = document.getElementById('firstLaunchTermsScreen');
+                    if (gate) gate.classList.remove('hidden');
+                }
+            } catch (_) {
+                const gate = document.getElementById('firstLaunchTermsScreen');
+                if (gate) gate.classList.remove('hidden');
+            }
+        }
+
+        async function acceptFirstLaunchTerms() {
+            try {
+                localStorage.setItem(getFirstLaunchTermsKey(), '1');
+            } catch (_) {}
+            const gate = document.getElementById('firstLaunchTermsScreen');
+            if (gate) gate.classList.add('hidden');
+            if (userProfile) userProfile.termsAccepted = true;
+            if (activeAccountId) {
+                try {
+                    await db.collection('users').doc(activeAccountId).set({
+                        termsAccepted: true,
+                        termsAcceptedAt: FieldValue.serverTimestamp()
+                    }, { merge: true });
+                } catch (_) {}
+            }
         }
     </script>
 </body>
