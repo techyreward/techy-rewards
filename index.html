@@ -940,8 +940,8 @@
             }
             candidate = String(candidate).trim();
             if (!candidate) return null;
-            if (candidate.startsWith('ref_')) {
-                const parsed = candidate.replace(/^ref_/, '').trim();
+            if (/^ref_?/i.test(candidate)) {
+                const parsed = candidate.replace(/^ref_?/i, '').trim();
                 return parsed || null;
             }
             return candidate;
@@ -1948,10 +1948,9 @@
         }
 
         function initUniqueReferralLink() {
-            const uniqueRefCode = `ref_${activeAccountId}`;
-            const directMiniAppLink = `https://t.me/${BOT_USERNAME}/${MINI_APP_SHORT_NAME}?startapp=${uniqueRefCode}`;
+            const botStartLink = `https://t.me/${BOT_USERNAME}?start=ref${activeAccountId}`;
             const refEl = document.getElementById('refLinkText');
-            if (refEl) refEl.innerText = directMiniAppLink;
+            if (refEl) refEl.innerText = botStartLink;
         }
 
         function switchOfferCategoryFilter(category) {
