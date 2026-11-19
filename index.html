@@ -1585,12 +1585,17 @@
                             data.prime === true ||
                             String(data.badge || '').toUpperCase() === 'PRIME'
                         );
+                        const hasInstallTrackingFlag = Boolean(
+                            data.hasInstallTracking === true ||
+                            data.installTracking === true
+                        );
                         return {
                             id: d.id,
                             title: data.name || data.title || 'Offer',
                             desc: data.subtitle || data.desc || 'Complete task to earn',
                             category: normCat,
                             isPrime: hasPrimeFlag,
+                            hasInstallTracking: hasInstallTrackingFlag,
                             tag: hasPrimeFlag ? 'PRIME' : (isKyc ? 'KYC' : 'NON-KYC'),
                             reward: Number(data.reward || data.payout || 0),
                             link: data.url || data.link || '#',
@@ -1626,7 +1631,11 @@
                 snap.docs.forEach((d) => {
                     const data = d.data();
                     if (data.offerId) {
-                        mergedMap[data.offerId] = { ...(mergedMap[data.offerId] || {}), ...data };
+                        mergedMap[data.offerId] = {
+                            ...(mergedMap[data.offerId] || {}),
+                            ...data,
+                            installTracked: Boolean(data.installTracked === true || data.installStatus === 'tracked')
+                        };
                     }
                 });
                 userTaskStatuses = mergedMap;
@@ -1770,9 +1779,12 @@
                 const ut = { ...baseTask, ...decision };
                 const status = ut.status || 'available';
                 const isPrime = Boolean(offer.isPrime || String(offer.tag || '').toUpperCase() === 'PRIME');
+                const hasInstallTracking = Boolean(offer.hasInstallTracking);
                 return {
                     ...offer,
                     isPrime,
+                    hasInstallTracking,
+                    installTracked: Boolean(ut.installTracked === true || ut.installStatus === 'tracked'),
                     status,
                     rejectReason: ut.rejectReason || '',
                     hiddenFromActive: status !== 'available'
@@ -1957,7 +1969,7 @@
 
         function renderOfferAvatar(task, sizeClasses = 'w-12 h-12 rounded-2xl text-xl') {
             if (task.logo) {
-                return `<img src="${task.logo}" alt="${escapeHtml(task.title)}" class="${sizeClasses} object-cover shadow-md shrink-0 border border-slate-200 bg-white group-hover:scale-105 transition-transform" />`;
+                return `<img src="${escapeHtml(task.logo)}" alt="${escapeHtml(task.title)}" class="${sizeClasses} object-cover shadow-md shrink-0 border border-slate-200 bg-white group-hover:scale-105 transition-transform" />`;
             }
             return `
                 <div class="${sizeClasses} bg-gradient-to-tr ${task.color} text-white flex items-center justify-center font-bold shadow-md shrink-0 group-hover:scale-105 transition-transform">
@@ -1990,7 +2002,10 @@
                         <div class="flex items-center space-x-3.5 min-w-0 pr-2">
                             ${renderOfferAvatar(task)}
                             <div class="space-y-1 min-w-0">
-                                ${shouldShowPrimeBadge(task) ? `<span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">PRIME</span>` : ''}
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    ${shouldShowPrimeBadge(task) ? `<span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">PRIME</span>` : ''}
+                                    ${task.hasInstallTracking ? `<span class="text-[9px] font-black text-sky-800 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full uppercase tracking-wider">Install Tracking</span>` : ''}
+                                </div>
                                 <h4 class="font-black text-slate-900 text-sm tracking-wide group-hover:text-emerald-600 transition-colors truncate">${escapeHtml(task.title)}</h4>
                                 <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
                             </div>
@@ -2121,13 +2136,25 @@
                                 </div>
                             `);
 
+                    const showInstallTracked = Boolean(task.hasInstallTracking) && Boolean(task.installTracked);
+                    const installTrackedBannerHtml = showInstallTracked
+                        ? `
+                            <div class="bg-emerald-50 border border-emerald-200/90 rounded-2xl px-3 py-2 flex items-center space-x-2 text-[11px] text-emerald-900 font-bold">
+                                <i class="fa-solid fa-circle-check text-emerald-600 shrink-0"></i>
+                                <span>Install Tracked • Complete remaining steps (like account open) for reward</span>
+                            </div>
+                        `
+                        : '';
                     return `
                         <div onclick="closeMyOffersScreen(); openTaskDetail('${task.id}')" class="bg-white border border-slate-200/80 p-4 rounded-3xl shadow-sm space-y-3 cursor-pointer hover:border-emerald-500/50 transition">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-3.5 min-w-0 pr-2">
                                     ${renderOfferAvatar(task, 'w-12 h-12 rounded-2xl text-base')}
                                     <div class="space-y-1 min-w-0">
-                                        ${shouldShowPrimeBadge(task) ? `<span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">PRIME</span>` : ''}
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            ${shouldShowPrimeBadge(task) ? `<span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">PRIME</span>` : ''}
+                                            ${showInstallTracked ? `<span class="text-[9px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full uppercase tracking-wider">Install Tracked</span>` : ''}
+                                        </div>
                                         <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(task.title)}</h4>
                                         <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
                                     </div>
@@ -2138,6 +2165,7 @@
                                     </span>
                                 </div>
                             </div>
+                            ${installTrackedBannerHtml}
                             ${proofSectionHtml}
                         </div>
                     `;
@@ -2197,7 +2225,7 @@
             const iconEl = document.getElementById('detailTaskIcon');
             if (task.logo) {
                 iconEl.className = 'w-20 h-20 rounded-2xl bg-white flex items-center justify-center shadow-md border border-emerald-100 shrink-0 overflow-hidden';
-                iconEl.innerHTML = `<img src="${task.logo}" alt="${escapeHtml(task.title)}" class="w-full h-full object-cover" />`;
+                iconEl.innerHTML = `<img src="${escapeHtml(task.logo)}" alt="${escapeHtml(task.title)}" class="w-full h-full object-cover" />`;
             } else {
                 iconEl.className = `w-20 h-20 rounded-2xl bg-gradient-to-tr ${task.color} text-white flex items-center justify-center text-3xl shadow-md shrink-0`;
                 iconEl.innerHTML = `<i class="fa-solid ${task.icon}"></i>`;
@@ -2366,7 +2394,7 @@
                 affClickId: trackingId,
                 status: 'started',
                 offerSnapshot: {
-                    title: task.title, desc: task.desc, category: task.category, isPrime: Boolean(task.isPrime), tag: task.tag,
+                    title: task.title, desc: task.desc, category: task.category, isPrime: Boolean(task.isPrime), hasInstallTracking: Boolean(task.hasInstallTracking), tag: task.tag,
                     reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
                     requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), customFieldLabel: String(task.customFieldLabel || ''), icon: task.icon, color: task.color,
                     conditions: Array.isArray(task.conditions) ? task.conditions : []
