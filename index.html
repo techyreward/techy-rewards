@@ -1342,7 +1342,7 @@
 
         // ==================== ONE-DEVICE & ONE-IP ACCOUNT FIRESTORE BINDING ====================
         async function resolveAndBindDeviceAccount() {
-            const verifiedUserId = auth.currentUser?.uid;
+            const verifiedUserId = String(auth.currentUser?.uid || '').trim();
 
             if (!verifiedUserId) {
                 throw new Error("User is not authenticated");
@@ -1359,60 +1359,56 @@
                 const ipSnap = ipRef ? await tx.get(ipRef) : null;
                 const userSnap = await tx.get(userRef);
 
-                if (userSnap.exists && userSnap.data()?.boundDeviceId) {
-                    const userBoundDevice = String(userSnap.data().boundDeviceId);
-                    if (userBoundDevice !== currentDeviceId) {
-                        throw new Error("LOCKED_OTHER_DEVICE: This account is locked to another device.");
-                    }
+                const userData = userSnap.exists ? (userSnap.data() || {}) : null;
+                const deviceData = deviceSnap.exists ? (deviceSnap.data() || {}) : null;
+                const ipData = (ipSnap && ipSnap.exists) ? (ipSnap.data() || {}) : null;
+
+                const userBoundDevice = userData?.boundDeviceId ? String(userData.boundDeviceId).trim() : '';
+                const deviceBoundUser = deviceData?.boundUserId ? String(deviceData.boundUserId).trim() : '';
+                const ipBoundUser = ipData?.boundUserId ? String(ipData.boundUserId).trim() : '';
+                const ipBoundDevice = ipData?.boundDeviceId ? String(ipData.boundDeviceId).trim() : '';
+
+                // 1) If this user already has a bound device, enforce that exact device
+                if (userBoundDevice && userBoundDevice !== currentDeviceId) {
+                    throw new Error("LOCKED_OTHER_DEVICE: This account is locked to another device.");
                 }
 
-                // Device lock is the primary binding; IP alone should not permanently
-                // trap the original account when carrier/dynamic mobile IP changes or
-                // a second Telegram account was tested on the same connection.
-                let existingBoundId = null;
-                if (deviceSnap.exists && deviceSnap.data()?.boundUserId) {
-                    existingBoundId = String(deviceSnap.data().boundUserId);
-                }
-
-                if (existingBoundId) {
-                    if (existingBoundId !== verifiedUserId) {
+                // 2) If this device is already bound in `devices`, enforce `One Device = One ID`
+                if (deviceBoundUser) {
+                    if (deviceBoundUser !== verifiedUserId) {
                         throw new Error("LOCKED_OTHER_USER: One Device = One ID. This device is bound to another account.");
                     }
 
                     tx.set(deviceRef, {
                         deviceId: currentDeviceId,
                         deviceHash: currentDeviceHash,
-                        boundUserId: existingBoundId,
+                        boundUserId: verifiedUserId,
                         ipAddress: currentIpAddress || '',
                         lastOpenedByTelegramId: openerTelegramId,
                         lastOpenedByName: openerUserName,
                         lastSeenAt: FieldValue.serverTimestamp()
                     }, { merge: true });
 
-                    if (ipRef && (!ipSnap || !ipSnap.exists || !ipSnap.data()?.boundUserId)) {
+                    if (ipRef && (!ipBoundUser || ipBoundUser === verifiedUserId)) {
                         tx.set(ipRef, {
                             ipAddress: currentIpAddress,
-                            boundUserId: existingBoundId,
+                            boundUserId: verifiedUserId,
                             boundDeviceId: currentDeviceId,
                             lastOpenedByTelegramId: openerTelegramId,
                             lastSeenAt: FieldValue.serverTimestamp()
                         }, { merge: true });
                     }
-                    return existingBoundId;
+                    return verifiedUserId;
                 }
 
-                // If this device has no lock yet, check if the IP belongs to a different user,
-                // but allow the user's own already-bound user doc to reclaim cleanly if needed.
-                if (ipSnap && ipSnap.exists && ipSnap.data()?.boundUserId) {
-                    const ipBoundUserId = String(ipSnap.data().boundUserId);
-                    if (ipBoundUserId !== verifiedUserId) {
-                        const userAlreadyBoundToThisDevice =
-                            userSnap.exists &&
-                            userSnap.data()?.boundDeviceId &&
-                            String(userSnap.data().boundDeviceId) === currentDeviceId;
-                        if (!userAlreadyBoundToThisDevice) {
-                            throw new Error("LOCKED_OTHER_USER: One Device = One ID. This network is bound to another account.");
-                        }
+                // 3) Device is NOT bound yet: check IP lock ONLY when the user is NOT already
+                //    bound to this device and the IP is bound to a different user + different device.
+                const userOwnsThisDevice = Boolean(userBoundDevice && userBoundDevice === currentDeviceId);
+                if (!userOwnsThisDevice && ipBoundUser && ipBoundUser !== verifiedUserId) {
+                    // Only block on IP if the IP lock also belongs to another device (or no device info),
+                    // never lock out the original account if its own user record already exists on this device.
+                    if (!ipBoundDevice || ipBoundDevice !== currentDeviceId) {
+                        throw new Error("LOCKED_OTHER_USER: One Device = One ID. This network is bound to another account.");
                     }
                 }
 
@@ -1445,9 +1441,9 @@
                     tx.set(userRef, {
                         name: openerUserName,
                         handle: openerUserHandle,
-                        boundDeviceId: userSnap.data()?.boundDeviceId || currentDeviceId,
+                        boundDeviceId: userBoundDevice || currentDeviceId,
                         deviceHash: currentDeviceHash,
-                        ipAddress: currentIpAddress || userSnap.data()?.ipAddress || ''
+                        ipAddress: currentIpAddress || userData?.ipAddress || ''
                     }, { merge: true });
                 }
 
@@ -1461,7 +1457,7 @@
                     lastSeenAt: FieldValue.serverTimestamp()
                 }, { merge: true });
 
-                if (ipRef) {
+                if (ipRef && (!ipBoundUser || ipBoundUser === primaryId)) {
                     tx.set(ipRef, {
                         ipAddress: currentIpAddress,
                         boundUserId: primaryId,
