@@ -2115,9 +2115,60 @@
             selectedTaskId = null;
         }
 
+        function showBoltRedirectScreen(destinationUrl, label = 'Redirecting...') {
+            let overlay = document.getElementById('boltRedirectScreen');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'boltRedirectScreen';
+                overlay.className = 'fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-5';
+                overlay.innerHTML = `
+                    <div class="bg-white rounded-3xl max-w-xs w-full p-6 text-center space-y-4 shadow-2xl border border-emerald-200/80">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center text-2xl mx-auto shadow-md shadow-emerald-500/25">
+                            <i class="fa-solid fa-bolt animate-pulse"></i>
+                        </div>
+                        <div class="space-y-1">
+                            <span class="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full uppercase tracking-wider">Techy Rewards</span>
+                            <h3 id="boltRedirectTitle" class="text-lg font-black text-slate-900 pt-1">Redirecting...</h3>
+                            <p class="text-xs text-slate-500 font-medium leading-relaxed">Please wait while we prepare your offer.</p>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+            }
+            const titleEl = document.getElementById('boltRedirectTitle');
+            if (titleEl) titleEl.innerText = label;
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+
+            setTimeout(() => {
+                if (!destinationUrl || destinationUrl === '#') {
+                    overlay.classList.add('hidden');
+                    overlay.classList.remove('flex');
+                    return;
+                }
+                const formattedUrl = /^https?:\/\//i.test(destinationUrl) ? destinationUrl : `https://${destinationUrl}`;
+                if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
+                    window.Telegram.WebApp.openLink(formattedUrl);
+                } else {
+                    window.open(formattedUrl, '_blank');
+                }
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                    overlay.classList.remove('flex');
+                }, 900);
+            }, 220);
+        }
+
         function buildTrackingOfferUrl(rawUrl, taskId) {
             if (!rawUrl || rawUrl === '#') return '#';
             let formattedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+            const trackingId = `u_${encodeURIComponent(String(activeAccountId))}__o_${encodeURIComponent(String(taskId))}__${Date.now()}`;
+            if (/\{p1\}/i.test(formattedUrl)) {
+                return formattedUrl.replace(/\{p1\}/gi, encodeURIComponent(trackingId));
+            }
+            if (/\{aff_click_id\}/i.test(formattedUrl)) {
+                return formattedUrl.replace(/\{aff_click_id\}/gi, encodeURIComponent(trackingId));
+            }
             const hasPlaceholder = /\{(user_id|subid|click_id|task_id)\}/i.test(formattedUrl);
             if (hasPlaceholder) {
                 formattedUrl = formattedUrl
@@ -2127,11 +2178,24 @@
             }
             try {
                 const u = new URL(formattedUrl);
+                if (u.hostname.includes('panel.earnindia.io') && u.pathname.includes('/click')) {
+                    if (!u.searchParams.has('p1')) {
+                        u.searchParams.set('p1', trackingId);
+                    }
+                    return u.toString();
+                }
+                if (u.searchParams.has('aff_click_id') && !u.searchParams.get('aff_click_id')) {
+                    u.searchParams.set('aff_click_id', trackingId);
+                    return u.toString();
+                }
                 if (!u.searchParams.has('subid') && !u.searchParams.has('sub_id')) {
                     u.searchParams.set('subid', `${activeAccountId}_${taskId}`);
                 }
                 return u.toString();
             } catch (_) {
+                if (formattedUrl.endsWith('aff_click_id=')) {
+                    return `${formattedUrl}${encodeURIComponent(trackingId)}`;
+                }
                 return formattedUrl;
             }
         }
@@ -2195,12 +2259,7 @@
 
         function openOfferUrl(url) {
             if (!url || url === '#') return;
-            const formattedUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
-            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
-                window.Telegram.WebApp.openLink(formattedUrl);
-            } else {
-                window.open(formattedUrl, '_blank');
-            }
+            showBoltRedirectScreen(url, 'Redirecting...');
         }
 
         function openTelegramTarget(event, url) {
