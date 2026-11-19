@@ -75,14 +75,14 @@
             </div>
             <div class="space-y-1.5">
                 <span class="inline-block text-[10px] font-black bg-white/15 border border-white/20 text-amber-200 px-3 py-1 rounded-full uppercase tracking-widest">Techy Rewards</span>
-                <h1 class="text-3xl font-black tracking-tight">Welcome Back</h1>
+                <h1 class="text-3xl font-black tracking-tight">Welcome To Techy rewards</h1>
                 <p class="text-xs text-white/85 font-medium">Complete simple offers, invite friends &amp; earn rewards</p>
             </div>
             <div class="inline-flex items-center space-x-2 bg-black/20 border border-white/20 text-amber-200 px-3.5 py-1.5 rounded-full text-[11px] font-black tracking-wide">
                 <i class="fa-solid fa-shield-halved text-amber-300 text-xs"></i>
                 <span>One Device = One Account</span>
             </div>
-            <div class="flex items-center justify-center space-x-2 text-[11px] font-bold text-white/80 pt-2">
+            <div class="flex items-center justify-center space-x-2 text-[11px] font-bold text-white/80 pt-1">
                 <span class="w-2 h-2 rounded-full bg-amber-300 animate-ping"></span>
                 <span id="wallpaperStatusText">Preparing app...</span>
             </div>
@@ -1366,21 +1366,17 @@
                     }
                 }
 
+                // Device lock is the primary binding; IP alone should not permanently
+                // trap the original account when carrier/dynamic mobile IP changes or
+                // a second Telegram account was tested on the same connection.
                 let existingBoundId = null;
-                if (ipSnap && ipSnap.exists && ipSnap.data()?.boundUserId) {
-                    existingBoundId = String(ipSnap.data().boundUserId);
-                }
                 if (deviceSnap.exists && deviceSnap.data()?.boundUserId) {
-                    const devBoundId = String(deviceSnap.data().boundUserId);
-                    if (existingBoundId && existingBoundId !== devBoundId) {
-                        throw new Error("LOCKED_CONFLICT: Device and IP bindings belong to different accounts.");
-                    }
-                    existingBoundId = devBoundId;
+                    existingBoundId = String(deviceSnap.data().boundUserId);
                 }
 
                 if (existingBoundId) {
                     if (existingBoundId !== verifiedUserId) {
-                        throw new Error("LOCKED_OTHER_USER: One Device = One ID. This device or IP is bound to another account.");
+                        throw new Error("LOCKED_OTHER_USER: One Device = One ID. This device is bound to another account.");
                     }
 
                     tx.set(deviceRef, {
@@ -1393,7 +1389,7 @@
                         lastSeenAt: FieldValue.serverTimestamp()
                     }, { merge: true });
 
-                    if (ipRef) {
+                    if (ipRef && (!ipSnap || !ipSnap.exists || !ipSnap.data()?.boundUserId)) {
                         tx.set(ipRef, {
                             ipAddress: currentIpAddress,
                             boundUserId: existingBoundId,
@@ -1403,6 +1399,21 @@
                         }, { merge: true });
                     }
                     return existingBoundId;
+                }
+
+                // If this device has no lock yet, check if the IP belongs to a different user,
+                // but allow the user's own already-bound user doc to reclaim cleanly if needed.
+                if (ipSnap && ipSnap.exists && ipSnap.data()?.boundUserId) {
+                    const ipBoundUserId = String(ipSnap.data().boundUserId);
+                    if (ipBoundUserId !== verifiedUserId) {
+                        const userAlreadyBoundToThisDevice =
+                            userSnap.exists &&
+                            userSnap.data()?.boundDeviceId &&
+                            String(userSnap.data().boundDeviceId) === currentDeviceId;
+                        if (!userAlreadyBoundToThisDevice) {
+                            throw new Error("LOCKED_OTHER_USER: One Device = One ID. This network is bound to another account.");
+                        }
+                    }
                 }
 
                 const primaryId = verifiedUserId;
