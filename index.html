@@ -63,6 +63,82 @@
 </head>
 <body class="min-h-screen text-slate-800 pb-24 select-none">
 
+    <!-- WELCOME WALLPAPER OVERLAY (SHOWS EVERY TIME, NO CONTINUE BUTTON, AUTO-REDIRECTS) -->
+    <div id="welcomeWallpaperScreen" class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-gradient-to-br from-emerald-600 via-teal-600 to-indigo-700 text-white transition-opacity duration-500">
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+            <div class="absolute -top-16 -left-16 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+            <div class="absolute -bottom-20 -right-16 w-72 h-72 bg-emerald-300/15 rounded-full blur-3xl"></div>
+        </div>
+        <div class="relative z-10 max-w-sm w-full text-center space-y-5">
+            <div class="w-20 h-20 rounded-3xl bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center text-4xl mx-auto shadow-2xl">
+                <i class="fa-solid fa-bolt text-amber-300 animate-pulse"></i>
+            </div>
+            <div class="space-y-1.5">
+                <span class="inline-block text-[10px] font-black bg-white/15 border border-white/20 text-amber-200 px-3 py-1 rounded-full uppercase tracking-widest">Techy Rewards</span>
+                <h1 class="text-3xl font-black tracking-tight">Welcome Back</h1>
+                <p class="text-xs text-white/85 font-medium">Complete simple offers, invite friends &amp; earn rewards</p>
+            </div>
+            <div class="flex items-center justify-center space-x-2 text-[11px] font-bold text-white/80 pt-2">
+                <span class="w-2 h-2 rounded-full bg-amber-300 animate-ping"></span>
+                <span id="wallpaperStatusText">Preparing app...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- FIRST-TIME TERMS & CONDITIONS AGREEMENT GATE -->
+    <div id="firstTimeTermsScreen" class="fixed inset-0 z-50 hidden bg-[#f8fafc] overflow-y-auto p-4 pb-8">
+        <div class="max-w-md mx-auto w-full space-y-4">
+            <div class="bg-white border border-slate-200/90 rounded-3xl p-5 shadow-sm space-y-1">
+                <span class="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full uppercase tracking-wider">One-Time Agreement</span>
+                <h2 class="text-xl font-black text-slate-900 pt-1">Terms &amp; Conditions</h2>
+                <p class="text-xs text-slate-500 font-medium">Please review and agree to continue to Techy Rewards.</p>
+            </div>
+
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex items-start space-x-2.5 shadow-sm">
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 text-sm mt-0.5 shrink-0"></i>
+                <p class="text-xs font-black text-amber-950 leading-snug">
+                    Important Notice: If you do not agree with these Terms &amp; Conditions, please do not use our app.
+                </p>
+            </div>
+
+            <div class="bg-white border border-slate-200/80 rounded-3xl p-5 space-y-3.5 shadow-sm text-xs text-slate-700 leading-relaxed max-h-[52vh] overflow-y-auto">
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-sm">1. Introduction &amp; Acceptance</h3>
+                    <p>Welcome to Techy Reward. By accessing or using our Telegram Mini App, you agree to abide by these Terms &amp; Conditions. If you do not agree with any clause, please refrain from using our services.</p>
+                </div>
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-sm">2. Earnings &amp; No Financial Guarantee</h3>
+                    <p>We do not guarantee any fixed earnings or monetary returns. Task rewards are dependent on successful verification and compliance by third-party offer partners. Payouts are subject to anti-fraud checks.</p>
+                </div>
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-sm">3. Task Approval &amp; Wallet Balance</h3>
+                    <p>Once a task is successfully approved by our system or advertisers, the cashback/reward is credited to your in-app wallet. <strong>The wallet balance is usable strictly within the app</strong> for withdrawals to eligible UPI IDs or Gift Cards.</p>
+                </div>
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-sm">4. Withdrawals &amp; Payout Processing</h3>
+                    <p>Withdrawal requests are processed within 24–48 hours. Users must provide accurate UPI IDs or voucher contact details. Techy Reward is not responsible for failed transactions caused by incorrect user-submitted payment details.</p>
+                </div>
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-sm">5. Referral Program &amp; Commissions</h3>
+                    <p>Our 50% referral commission applies to the <strong>first 3 completed &amp; approved tasks</strong> OR upon completing at least <strong>1 PRIME task</strong> by each genuine friend who joins via your unique referral link. Fraudulent or self-referrals will result in immediate account termination and forfeiture of balance.</p>
+                </div>
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-sm">6. Compliance &amp; Usage Laws</h3>
+                    <p>Users must meet the required age eligibility (e.g., 18+ for certain financial or KYC offers, and 21+ where specified) and comply with all applicable local laws. Any misuse, automation scripts, or bot activities will lead to permanent bans.</p>
+                </div>
+                <div class="space-y-1">
+                    <h3 class="font-black text-slate-900 text-sm">7. No Money Guarantee</h3>
+                    <p><strong>We do not guarantee any money.</strong> All rewards, cashback, and referral bonuses are strictly promotional incentives subject to advertiser verification, availability, and compliance with our platform rules.</p>
+                </div>
+            </div>
+
+            <button onclick="agreeFirstTimeTerms()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 active:scale-[0.99] text-white font-black py-4 rounded-2xl text-xs transition shadow-xl shadow-emerald-500/25">
+                I Agree &amp; Continue
+            </button>
+        </div>
+    </div>
+
+
     <!-- SUSPENDED ACCOUNT OVERLAY -->
     <div id="suspendedScreen" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-5">
         <div class="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border border-rose-200">
@@ -77,31 +153,6 @@
             <a id="suspendedSupportLink" href="https://t.me/techyrewardsbot" target="_blank" onclick="return openTelegramTarget(event, this.href)" class="block w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-3.5 rounded-2xl text-xs transition">
                 Contact Support
             </a>
-        </div>
-    </div>
-
-    <!-- FIRST LAUNCH TERMS & CONDITIONS GATE OVERLAY -->
-    <div id="firstLaunchTermsScreen" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-5">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-emerald-200 max-h-[88vh] flex flex-col justify-between">
-            <div class="space-y-2 text-center">
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center text-xl mx-auto shadow-md">
-                    <i class="fa-solid fa-file-contract"></i>
-                </div>
-                <span class="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full uppercase tracking-wider">Welcome • First Launch</span>
-                <h2 class="text-lg font-black text-slate-900">Terms &amp; Conditions</h2>
-                <p class="text-[11px] text-slate-500 font-medium">Please review and accept our rules to continue.</p>
-            </div>
-
-            <div class="overflow-y-auto space-y-2.5 text-xs text-slate-700 leading-relaxed bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 my-2">
-                <p><strong>1. Earnings &amp; Verification:</strong> Rewards are subject to advertiser verification and anti-fraud checks. We do not guarantee fixed income.</p>
-                <p><strong>2. One Device = One ID:</strong> Each device and account must remain unique; cloners, VPNs, or multiple accounts are not allowed.</p>
-                <p><strong>3. Referral Eligibility:</strong> Referral commission applies on your friend's first 3 approved tasks once your friend completes either <strong>3 unique simple tasks</strong> OR <strong>1 Prime task</strong>.</p>
-                <p><strong>4. Withdrawals:</strong> Payouts are processed within 24–48 hours to valid UPI IDs or Gift Card emails.</p>
-            </div>
-
-            <button id="agreeFirstLaunchBtn" type="button" onclick="acceptFirstLaunchTerms()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 text-white font-black py-3.5 rounded-2xl text-xs transition shadow-lg shadow-emerald-500/25 shrink-0">
-                I Agree &amp; Continue
-            </button>
         </div>
     </div>
 
@@ -399,7 +450,7 @@
                     <h3 class="font-black text-slate-900 text-xs uppercase tracking-wider">Active Offers</h3>
                     <button onclick="openMyOffersScreen()" class="inline-flex items-center space-x-1.5 bg-white hover:border-emerald-500/50 active:scale-[0.98] border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm transition">
                         <span class="font-black text-slate-800 text-[11px]">My Offers</span>
-                        <span id="myOffersCountBadge" class="hidden bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">0</span>
+                        
                         <i class="fa-solid fa-arrow-right text-emerald-600 text-[10px]"></i>
                     </button>
                 </div>
@@ -445,7 +496,7 @@
                         </li>
                         <li class="flex items-start">
                             <span class="text-emerald-600 font-bold mr-2">•</span>
-                            <span>Friend must complete at least <strong class="text-slate-900">3 Unique Simple Tasks</strong> OR <strong class="text-slate-900">1 Prime Task</strong> to unlock referral earnings.</span>
+                            <span>Friend must complete at least <strong class="text-slate-900">3 Simple Tasks</strong> OR <strong class="text-slate-900">1 Prime Task</strong>.</span>
                         </li>
                     </ul>
                 </div>
@@ -1204,14 +1255,13 @@
                     });
 
                 const approved = Array.from(uniqueApproved.values());
-                const uniqueTasksCompleted = approved.length;
+                const tasksCompleted = approved.length;
                 const primeTasksCompleted = approved.filter((s) => {
                     const cat = String(s.category || '').toLowerCase();
-                    return cat === 'kyc' || cat === 'prime' || s.isPrime === true || s.primeBadge === true;
+                    return cat === 'kyc' || cat === 'prime' || s.isPrime === true;
                 }).length;
 
-                const isQualified = uniqueTasksCompleted >= 3 || primeTasksCompleted >= 1;
-                const tasksCompleted = uniqueTasksCompleted;
+                const isQualified = tasksCompleted >= 3 || primeTasksCompleted >= 1;
                 const friendEarned = approved.reduce((sum, s) => sum + Number(s.reward || 0), 0);
                 const refPct = Number(appSettings.referralPercent || 50);
                 const computedComm = isQualified
@@ -1766,7 +1816,52 @@
             if (profWithdrawn) profWithdrawn.innerText = `₹${withdrawn.toFixed(2)}`;
         }
 
+        function getTermsAgreedKeys() {
+            const keys = ['techy_terms_agreed_global'];
+            if (openerTelegramId) keys.push(`techy_terms_agreed_tg_${openerTelegramId}`);
+            if (activeAccountId) keys.push(`techy_terms_agreed_${activeAccountId}`);
+            if (auth.currentUser?.uid) keys.push(`techy_terms_agreed_${auth.currentUser.uid}`);
+            return Array.from(new Set(keys));
+        }
+
+        function hasAgreedToTermsFirstTime() {
+            try {
+                return getTermsAgreedKeys().some((k) => localStorage.getItem(k) === 'true');
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function markTermsAgreed() {
+            try {
+                getTermsAgreedKeys().forEach((k) => {
+                    localStorage.setItem(k, 'true');
+                });
+            } catch (_) {}
+        }
+
+        function hideWallpaperScreen() {
+            const wp = document.getElementById('welcomeWallpaperScreen');
+            if (wp) wp.classList.add('hidden');
+        }
+
+        function showFirstTimeTermsGate() {
+            hideWallpaperScreen();
+            const gate = document.getElementById('firstTimeTermsScreen');
+            if (gate) gate.classList.remove('hidden');
+        }
+
+        function agreeFirstTimeTerms() {
+            markTermsAgreed();
+            const gate = document.getElementById('firstTimeTermsScreen');
+            if (gate) gate.classList.add('hidden');
+            switchTab('home');
+        }
+
         window.onload = async function() {
+            const wp = document.getElementById('welcomeWallpaperScreen');
+            if (wp) wp.classList.remove('hidden');
+
             try {
                 if (window.Telegram?.WebApp) {
                     window.Telegram.WebApp.ready();
@@ -1791,10 +1886,18 @@
                 renderWalletTransactions();
                 renderEarningHistory();
                 switchTab('home');
-                checkFirstLaunchTermsGate();
+
+                setTimeout(() => {
+                    if (hasAgreedToTermsFirstTime()) {
+                        hideWallpaperScreen();
+                    } else {
+                        showFirstTimeTermsGate();
+                    }
+                }, 1200);
 
             } catch (error) {
                 console.error("App startup failed:", error);
+                hideWallpaperScreen();
                 const msg = String(error?.message || "Unknown error");
                 if (msg.startsWith("LOCKED_") || msg.includes("bound to another account") || msg.includes("locked to another device")) {
                     showHardDeviceLockScreen(msg.replace(/^LOCKED_[A-Z_]+:\s*/, ""));
@@ -1863,17 +1966,6 @@
                 t.status === 'available' &&
                 t.active !== false && t.category === currentOfferCategoryFilter
             );
-
-            const myOffersCount = merged.filter(t => t.status !== 'available').length;
-            const badgeEl = document.getElementById('myOffersCountBadge');
-            if (badgeEl) {
-                if (myOffersCount > 0) {
-                    badgeEl.innerText = myOffersCount;
-                    badgeEl.classList.remove('hidden');
-                } else {
-                    badgeEl.classList.add('hidden');
-                }
-            }
 
             if (availableTasks.length === 0) {
                 activeContainer.innerHTML = `<div class="glass-card p-6 rounded-2xl text-center text-xs text-slate-500 font-bold">No active ${currentOfferCategoryFilter.toUpperCase()} offers available right now!</div>`;
@@ -3066,41 +3158,6 @@
 
         function closeTermsModal() {
             document.getElementById('termsScreen').classList.add('hidden');
-        }
-
-        function getFirstLaunchTermsKey() {
-            return `techy_terms_agreed_${activeAccountId || openerTelegramId || 'default'}`;
-        }
-
-        function checkFirstLaunchTermsGate() {
-            try {
-                const agreedLocal = localStorage.getItem(getFirstLaunchTermsKey()) === '1';
-                const agreedProfile = userProfile && userProfile.termsAccepted === true;
-                if (!agreedLocal && !agreedProfile) {
-                    const gate = document.getElementById('firstLaunchTermsScreen');
-                    if (gate) gate.classList.remove('hidden');
-                }
-            } catch (_) {
-                const gate = document.getElementById('firstLaunchTermsScreen');
-                if (gate) gate.classList.remove('hidden');
-            }
-        }
-
-        async function acceptFirstLaunchTerms() {
-            try {
-                localStorage.setItem(getFirstLaunchTermsKey(), '1');
-            } catch (_) {}
-            const gate = document.getElementById('firstLaunchTermsScreen');
-            if (gate) gate.classList.add('hidden');
-            if (userProfile) userProfile.termsAccepted = true;
-            if (activeAccountId) {
-                try {
-                    await db.collection('users').doc(activeAccountId).set({
-                        termsAccepted: true,
-                        termsAcceptedAt: FieldValue.serverTimestamp()
-                    }, { merge: true });
-                } catch (_) {}
-            }
         }
     </script>
 </body>
