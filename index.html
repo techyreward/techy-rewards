@@ -300,7 +300,7 @@
                 </div>
             </div>
 
-            <!-- Filter Pills: All, Completed, Failed, Referral -->
+            <!-- Filter Pills: All, Completed, Rejected, Referral -->
             <div class="flex items-center space-x-2 overflow-x-auto hide-scrollbar pb-1 pt-1">
                 <button onclick="filterEarningHistory('all')" id="histFilter-all" class="px-4 py-2 rounded-full text-xs font-black bg-emerald-600 text-white shadow-sm shrink-0 transition">
                     All
@@ -308,8 +308,8 @@
                 <button onclick="filterEarningHistory('completed')" id="histFilter-completed" class="px-4 py-2 rounded-full text-xs font-black bg-white text-slate-600 border border-slate-200 hover:text-slate-900 shrink-0 transition">
                     Completed
                 </button>
-                <button onclick="filterEarningHistory('failed')" id="histFilter-failed" class="px-4 py-2 rounded-full text-xs font-black bg-white text-slate-600 border border-slate-200 hover:text-slate-900 shrink-0 transition">
-                    Failed
+                <button onclick="filterEarningHistory('rejected')" id="histFilter-rejected" class="px-4 py-2 rounded-full text-xs font-black bg-white text-slate-600 border border-slate-200 hover:text-slate-900 shrink-0 transition">
+                    Rejected
                 </button>
                 <button onclick="filterEarningHistory('referral')" id="histFilter-referral" class="px-4 py-2 rounded-full text-xs font-black bg-white text-slate-600 border border-slate-200 hover:text-slate-900 shrink-0 transition">
                     Referral
@@ -1022,7 +1022,7 @@
             for (const url of endpoints) {
                 try {
                     const controller = new AbortController();
-                    const timer = setTimeout(() => controller.abort(), 3000);
+                    const timer = setTimeout(() => controller.abort(), 1500);
                     const res = await fetch(url, { signal: controller.signal });
                     clearTimeout(timer);
                     if (res.ok) {
@@ -1616,6 +1616,7 @@
                             requireProof: Boolean(data.requireProof || data.proofRequired || data.isProofRequired),
                             collectMobile: Boolean(data.collectMobile),
                             allowProofSubmission: Boolean(data.allowProofSubmission),
+                            postbackEnabled: Boolean(data.postbackEnabled),
                             customFieldLabel: String(data.customFieldLabel || '').trim(),
                             icon: isKyc ? 'fa-shield-halved' : 'fa-bolt',
                             color: isKyc ? 'from-emerald-500 to-teal-600' : 'from-indigo-500 to-purple-600',
@@ -1694,6 +1695,41 @@
                 });
                 submissionTaskStatuses = latestByTask;
                 submissionsLoaded = true;
+
+                // Ensure any rejected submission appears in Earning History -> Rejected
+                const rejectedHistoryItems = subDocs
+                    .filter((s) => String(s.status || '').toLowerCase() === 'rejected')
+                    .map((s, idx) => {
+                        const amt = Number(s.reward || 0);
+                        const reasonText = s.rejectReason ? ` (${s.rejectReason})` : '';
+                        return {
+                            id: `sub_rej_${s.taskId || idx}_${s.createdAt?.seconds || idx}`,
+                            category: 'earnings',
+                            type: 'rejected',
+                            badge: 'Rejected Task',
+                            title: `₹${amt.toFixed(2)} Task Attempt`,
+                            subtitle: `Task Rejected - ${s.taskName || 'Offer'}${reasonText}`,
+                            status: 'Rejected',
+                            date: s.date || 'Recent',
+                            ts: s.rejectedAt?.seconds || s.createdAt?.seconds || 0
+                        };
+                    });
+
+                if (rejectedHistoryItems.length > 0) {
+                    const existingNonSub = transactionsData.filter((t) => !String(t.id || '').startsWith('sub_rej_'));
+                    const existingSignatures = new Set(
+                        existingNonSub
+                            .filter((t) => t.type === 'rejected')
+                            .map((t) => `${t.title}|${t.date}`)
+                    );
+                    const dedupedRejected = rejectedHistoryItems.filter(
+                        (r) => !existingSignatures.has(`${r.title}|${r.date}`)
+                    );
+                    transactionsData = [...existingNonSub, ...dedupedRejected].sort((a, b) => b.ts - a.ts);
+                    renderWalletTransactions();
+                    renderEarningHistory();
+                }
+
                 renderTasks();
                 renderMyOffers();
                 syncReferralProgressToAdmin(subDocs);
@@ -1926,13 +1962,11 @@
                 renderEarningHistory();
                 switchTab('home');
 
-                setTimeout(() => {
-                    if (hasAgreedToTermsFirstTime()) {
-                        hideWallpaperScreen();
-                    } else {
-                        showFirstTimeTermsGate();
-                    }
-                }, 1200);
+                if (hasAgreedToTermsFirstTime()) {
+                    setTimeout(() => hideWallpaperScreen(), 350);
+                } else {
+                    setTimeout(() => showFirstTimeTermsGate(), 350);
+                }
 
             } catch (error) {
                 console.error("App startup failed:", error);
@@ -2326,42 +2360,73 @@
         }
 
         function buildTrackingOfferUrl(rawUrl, taskId) {
-            const trackingId = `u_${encodeURIComponent(String(activeAccountId))}__o_${encodeURIComponent(String(taskId))}__${Date.now()}`;
-            if (!rawUrl || rawUrl === '#') return { trackingId, url: '#' };
-            let formattedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
-            if (/\{p1\}/i.test(formattedUrl)) {
-                return { trackingId, url: formattedUrl.replace(/\{p1\}/gi, encodeURIComponent(trackingId)) };
+            const trackingId = `tr_${crypto.randomUUID().replace(/-/g, '')}`;
+
+            if (!rawUrl || rawUrl === '#') {
+                return { trackingId, url: '#' };
             }
-            if (/\{aff_click_id\}/i.test(formattedUrl)) {
-                return { trackingId, url: formattedUrl.replace(/\{aff_click_id\}/gi, encodeURIComponent(trackingId)) };
+
+            let formattedUrl = /^https?:\/\//i.test(rawUrl)
+                ? rawUrl
+                : `https://${rawUrl}`;
+
+            // Replace supported placeholders with the unique tracking ID.
+            const clickPlaceholders = [
+                /\{p1\}/gi,
+                /\{aff_click_id\}/gi,
+                /\{subid\}/gi,
+                /\{sub_id\}/gi,
+                /\{click_id\}/gi
+            ];
+
+            let hasClickPlaceholder = false;
+
+            clickPlaceholders.forEach(pattern => {
+                if (pattern.test(formattedUrl)) {
+                    hasClickPlaceholder = true;
+                    formattedUrl = formattedUrl.replace(
+                        pattern,
+                        encodeURIComponent(trackingId)
+                    );
+                }
+            });
+
+            if (/\{task_id\}/i.test(formattedUrl)) {
+                formattedUrl = formattedUrl.replace(
+                    /\{task_id\}/gi,
+                    encodeURIComponent(taskId)
+                );
             }
-            const hasPlaceholder = /\{(user_id|subid|click_id|task_id)\}/i.test(formattedUrl);
-            if (hasPlaceholder) {
-                formattedUrl = formattedUrl
-                    .replace(/\{(user_id|subid|click_id)\}/gi, encodeURIComponent(activeAccountId))
-                    .replace(/\{task_id\}/gi, encodeURIComponent(taskId));
+
+            if (/\{user_id\}/i.test(formattedUrl)) {
+                formattedUrl = formattedUrl.replace(
+                    /\{user_id\}/gi,
+                    encodeURIComponent(activeAccountId)
+                );
+            }
+
+            if (hasClickPlaceholder) {
                 return { trackingId, url: formattedUrl };
             }
+
             try {
                 const u = new URL(formattedUrl);
-                if (u.hostname.includes('panel.earnindia.io') && u.pathname.includes('/click')) {
-                    if (!u.searchParams.has('p1')) {
-                        u.searchParams.set('p1', trackingId);
-                    }
-                    return { trackingId, url: u.toString() };
-                }
-                if (u.searchParams.has('aff_click_id') && !u.searchParams.get('aff_click_id')) {
+
+                if (u.hostname.includes('panel.earnindia.io') &&
+                    u.pathname.includes('/click')) {
+                    u.searchParams.set('p1', trackingId);
+                } else if (u.searchParams.has('aff_click_id')) {
                     u.searchParams.set('aff_click_id', trackingId);
-                    return { trackingId, url: u.toString() };
+                } else if (u.searchParams.has('subid')) {
+                    u.searchParams.set('subid', trackingId);
+                } else if (u.searchParams.has('sub_id')) {
+                    u.searchParams.set('sub_id', trackingId);
+                } else {
+                    u.searchParams.set('subid', trackingId);
                 }
-                if (!u.searchParams.has('subid') && !u.searchParams.has('sub_id')) {
-                    u.searchParams.set('subid', `${activeAccountId}_${taskId}`);
-                }
+
                 return { trackingId, url: u.toString() };
             } catch (_) {
-                if (formattedUrl.endsWith('aff_click_id=')) {
-                    return { trackingId, url: `${formattedUrl}${encodeURIComponent(trackingId)}` };
-                }
                 return { trackingId, url: formattedUrl };
             }
         }
@@ -2664,8 +2729,8 @@
         }
 
         function filterEarningHistory(filter) {
-            currentHistoryFilter = filter;
-            ['all', 'completed', 'failed', 'referral'].forEach(f => {
+            currentHistoryFilter = filter === 'failed' ? 'rejected' : filter;
+            ['all', 'completed', 'rejected', 'referral'].forEach(f => {
                 const btn = document.getElementById(`histFilter-${f}`);
                 if (btn) {
                     btn.className = f === filter
@@ -2683,11 +2748,11 @@
             let items = transactionsData.filter(tx => tx.category === 'earnings');
 
             if (currentHistoryFilter === 'completed') {
-                items = items.filter(tx => tx.type === 'completed');
-            } else if (currentHistoryFilter === 'failed') {
-                items = items.filter(tx => tx.type === 'failed');
+                items = items.filter(tx => tx.type === 'completed' || String(tx.status || '').toLowerCase() === 'completed' || String(tx.status || '').toLowerCase() === 'approved');
+            } else if (currentHistoryFilter === 'rejected') {
+                items = items.filter(tx => tx.type === 'rejected' || tx.type === 'failed' || String(tx.status || '').toLowerCase() === 'rejected');
             } else if (currentHistoryFilter === 'referral') {
-                items = items.filter(tx => tx.type === 'referral');
+                items = items.filter(tx => tx.type === 'referral' || String(tx.badge || '').toLowerCase() === 'referral');
             }
 
             if (items.length === 0) {
@@ -2700,10 +2765,10 @@
                 let statusStyle = 'bg-emerald-100 text-emerald-800';
                 let icon = 'fa-circle-check';
 
-                if (tx.type === 'referral') {
+                if (tx.type === 'referral' || String(tx.badge || '').toLowerCase() === 'referral') {
                     badgeStyle = 'bg-purple-100 text-purple-700';
                     icon = 'fa-user-plus';
-                } else if (tx.type === 'failed') {
+                } else if (tx.type === 'rejected' || tx.type === 'failed' || String(tx.status || '').toLowerCase() === 'rejected') {
                     badgeStyle = 'bg-rose-100 text-rose-700';
                     statusStyle = 'bg-rose-100 text-rose-800';
                     icon = 'fa-circle-xmark';
