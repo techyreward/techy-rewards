@@ -1552,7 +1552,7 @@
                     renderTasks();
                     renderMyOffers();
                 }
-            }, 1500);
+            }, 500);
 
             db.collection('settings').doc('app').onSnapshot((docSnap) => {
                 if (docSnap.exists) {
