@@ -191,6 +191,58 @@
                 </div>
             </div>
 
+            <!-- Optional Offer Process Video Card -->
+            <div id="detailTaskVideoSection" class="hidden bg-white border-2 border-slate-200/90 rounded-3xl p-4 space-y-2.5 shadow-md shrink-0">
+                <div class="flex items-center justify-between">
+                    <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center">
+                        <i class="fa-solid fa-circle-play mr-2 text-emerald-600 text-sm"></i> Video Process Guide
+                    </h4>
+                    <span class="text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">Step-by-Step</span>
+                </div>
+                <div id="detailTaskVideoPlayerWrap" class="relative w-full aspect-video rounded-[1.25rem] bg-black overflow-hidden shadow-inner select-none">
+                    <video id="detailProcessVideo" playsinline preload="metadata" class="w-full h-full object-contain bg-black"></video>
+                    <iframe id="detailProcessIframe" class="hidden w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    <div id="detailProcessVideoFallback" class="hidden w-full h-full flex flex-col items-center justify-center p-4 text-center text-white space-y-2 bg-slate-900">
+                        <i class="fa-solid fa-video-slash text-amber-400 text-xl"></i>
+                        <p id="detailProcessVideoFallbackMsg" class="text-xs font-bold text-slate-200">Unsupported video format or link.</p>
+                        <a id="detailProcessVideoExternalLink" href="#" target="_blank" onclick="return openTelegramTarget(event, this.href)" class="inline-flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black px-3.5 py-2 rounded-xl transition">
+                            <span>Open Video Guide</span>
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                        </a>
+                    </div>
+
+                    <!-- Custom Reference-Style Overlay Controls (for direct MP4/video files) -->
+                    <div id="customVideoControlsOverlay" class="absolute inset-0 flex flex-col justify-between p-3 pointer-events-none transition-opacity duration-200">
+                        <div></div>
+                        <div class="flex items-center justify-center">
+                            <button id="centerPlayPauseBtn" type="button" onclick="toggleProcessVideoPlay(event)" class="pointer-events-auto w-14 h-14 rounded-full bg-slate-200/95 hover:bg-white active:scale-95 text-slate-950 flex items-center justify-center shadow-xl transition">
+                                <i id="centerPlayPauseIcon" class="fa-solid fa-play text-xl ml-0.5"></i>
+                            </button>
+                        </div>
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between text-white text-[11px] font-bold tracking-tight drop-shadow">
+                                <span id="videoCurrentTimeText" class="font-mono">0:00</span>
+                                <div class="flex items-center space-x-3 pointer-events-auto">
+                                    <button type="button" onclick="toggleProcessVideoMute(event)" class="hover:text-emerald-300 transition" title="Mute / Unmute">
+                                        <i id="videoMuteIcon" class="fa-solid fa-volume-high text-xs"></i>
+                                    </button>
+                                    <button type="button" onclick="toggleProcessVideoFullscreen(event)" class="hover:text-emerald-300 transition" title="Fullscreen">
+                                        <i class="fa-solid fa-expand text-xs"></i>
+                                    </button>
+                                    <button type="button" onclick="cycleProcessVideoSpeed(event)" class="px-1.5 py-0.5 rounded bg-black/50 hover:bg-black/75 text-[10px] font-extrabold transition" title="Playback Speed">
+                                        <span id="videoSpeedLabel">1x</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div onclick="seekProcessVideo(event)" id="videoProgressTrack" class="pointer-events-auto w-full h-1.5 bg-white/35 rounded-full cursor-pointer relative overflow-visible flex items-center">
+                                <div id="videoProgressFill" class="h-full bg-white rounded-full" style="width: 0%;"></div>
+                                <div id="videoProgressThumb" class="w-3.5 h-3.5 rounded-full bg-white shadow-md -ml-1.5 shrink-0" style="left: 0%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Task Rules & Requirements Card -->
             <div class="bg-white border-2 border-slate-200/90 rounded-3xl p-5 space-y-3 shadow-md flex-1">
                 <div class="flex items-center justify-between pb-2 border-b border-slate-100">
@@ -1014,26 +1066,35 @@
             return 'dh_' + (h1 >>> 0).toString(36) + '_' + (h2 >>> 0).toString(36);
         }
 
+        let prefetchedIpPromise = null;
         async function fetchPublicIpAddress() {
-            const endpoints = [
-                'https://api.ipify.org?format=json',
-                'https://api64.ipify.org?format=json'
-            ];
-            for (const url of endpoints) {
+            if (prefetchedIpPromise) return prefetchedIpPromise;
+            prefetchedIpPromise = (async () => {
+                const endpoints = [
+                    'https://api.ipify.org?format=json',
+                    'https://api64.ipify.org?format=json'
+                ];
                 try {
-                    const controller = new AbortController();
-                    const timer = setTimeout(() => controller.abort(), 1500);
-                    const res = await fetch(url, { signal: controller.signal });
-                    clearTimeout(timer);
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data && data.ip) {
-                            return String(data.ip).trim();
-                        }
-                    }
-                } catch (_) {}
-            }
-            return '';
+                    return await Promise.any(
+                        endpoints.map(async (url) => {
+                            const controller = new AbortController();
+                            const timer = setTimeout(() => controller.abort(), 700);
+                            try {
+                                const res = await fetch(url, { signal: controller.signal });
+                                if (!res.ok) throw new Error('ip fetch failed');
+                                const data = await res.json();
+                                if (data && data.ip) return String(data.ip).trim();
+                                throw new Error('no ip');
+                            } finally {
+                                clearTimeout(timer);
+                            }
+                        })
+                    );
+                } catch (_) {
+                    return '';
+                }
+            })();
+            return prefetchedIpPromise;
         }
 
         function ipToDocKey(ip) {
@@ -1253,7 +1314,18 @@
             try {
                 const uniqueApproved = new Map();
                 submissionsDocs
-                    .filter((s) => s.status === 'Approved')
+                    .filter((s) => {
+                        if (s.status !== 'Approved') return false;
+                        const matchedOffer = liveOffers.find((o) => String(o.id) === String(s.taskId));
+                        if (
+                            s.excludeFromReferral === true ||
+                            s.offerSnapshot?.excludeFromReferral === true ||
+                            matchedOffer?.excludeFromReferral === true
+                        ) {
+                            return false;
+                        }
+                        return true;
+                    })
                     .sort((a, b) => (a.approvedAt?.seconds || a.createdAt?.seconds || 0) - (b.approvedAt?.seconds || b.createdAt?.seconds || 0))
                     .forEach((s) => {
                         const key = String(s.taskId || s.taskName || Math.random());
@@ -1601,6 +1673,7 @@
                             data.hasInstallTracking === true ||
                             data.installTracking === true
                         );
+                        const excludeReferralFlag = Boolean(data.excludeFromReferral === true);
                         return {
                             id: d.id,
                             title: data.name || data.title || 'Offer',
@@ -1608,6 +1681,7 @@
                             category: normCat,
                             isPrime: hasPrimeFlag,
                             hasInstallTracking: hasInstallTrackingFlag,
+                            excludeFromReferral: excludeReferralFlag,
                             tag: hasPrimeFlag ? 'PRIME' : (isKyc ? 'KYC' : 'NON-KYC'),
                             reward: Number(data.reward || data.payout || 0),
                             link: data.url || data.link || '#',
@@ -1618,6 +1692,7 @@
                             allowProofSubmission: Boolean(data.allowProofSubmission),
                             postbackEnabled: Boolean(data.postbackEnabled),
                             customFieldLabel: String(data.customFieldLabel || '').trim(),
+                            videoUrl: String(data.videoUrl || data.processVideoUrl || '').trim(),
                             icon: isKyc ? 'fa-shield-halved' : 'fa-bolt',
                             color: isKyc ? 'from-emerald-500 to-teal-600' : 'from-indigo-500 to-purple-600',
                             conditions: Array.isArray(data.steps) && data.steps.length
@@ -1943,6 +2018,7 @@
                     window.Telegram.WebApp.expand();
                 }
 
+                fetchPublicIpAddress();
                 await authenticateTelegramUser();
 
                 activeAccountId = auth.currentUser.uid;
@@ -1963,9 +2039,9 @@
                 switchTab('home');
 
                 if (hasAgreedToTermsFirstTime()) {
-                    setTimeout(() => hideWallpaperScreen(), 350);
+                    hideWallpaperScreen();
                 } else {
-                    setTimeout(() => showFirstTimeTermsGate(), 350);
+                    showFirstTimeTermsGate();
                 }
 
             } catch (error) {
@@ -2043,23 +2119,31 @@
                 activeContainer.innerHTML = `<div class="glass-card p-6 rounded-2xl text-center text-xs text-slate-500 font-bold">No active ${currentOfferCategoryFilter.toUpperCase()} offers available right now!</div>`;
             } else {
                 activeContainer.innerHTML = availableTasks.map(task => `
-                    <div onclick="openTaskDetail('${task.id}')" class="group glass-card p-4 rounded-2xl hover:border-emerald-500/50 transition-all duration-300 cursor-pointer flex items-center justify-between shadow-sm hover:shadow-md">
-                        <div class="flex items-center space-x-3.5 min-w-0 pr-2">
-                            ${renderOfferAvatar(task)}
-                            <div class="space-y-1 min-w-0">
-                                <div class="flex flex-wrap items-center gap-1.5">
-                                    ${shouldShowPrimeBadge(task) ? `<span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">PRIME</span>` : ''}
-                                    ${task.hasInstallTracking ? `<span class="text-[9px] font-black text-sky-800 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full uppercase tracking-wider">Install Tracking</span>` : ''}
+                    <div onclick="openTaskDetail('${task.id}')" class="group glass-card p-4 rounded-2xl hover:border-emerald-500/50 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3.5 min-w-0 pr-2">
+                                ${renderOfferAvatar(task)}
+                                <div class="space-y-1 min-w-0">
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        ${shouldShowPrimeBadge(task) ? `<span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">PRIME</span>` : ''}
+                                        ${task.hasInstallTracking ? `<span class="text-[9px] font-black text-sky-800 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full uppercase tracking-wider">Install Tracking</span>` : ''}
+                                    </div>
+                                    <h4 class="font-black text-slate-900 text-sm tracking-wide group-hover:text-emerald-600 transition-colors truncate">${escapeHtml(task.title)}</h4>
+                                    <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
                                 </div>
-                                <h4 class="font-black text-slate-900 text-sm tracking-wide group-hover:text-emerald-600 transition-colors truncate">${escapeHtml(task.title)}</h4>
-                                <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
+                            </div>
+                            <div class="shrink-0">
+                                <span class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-sm">
+                                    +₹${task.reward}
+                                </span>
                             </div>
                         </div>
-                        <div class="shrink-0">
-                            <span class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-sm">
-                                +₹${task.reward}
-                            </span>
-                        </div>
+                        ${task.excludeFromReferral ? `
+                            <div class="flex items-center space-x-1.5 bg-amber-50 border border-amber-200/90 text-amber-900 px-2.5 py-1.5 rounded-xl text-[10px] font-bold">
+                                <i class="fa-solid fa-circle-exclamation text-amber-600 shrink-0"></i>
+                                <span>Note: No referral commission or referral task count for this offer.</span>
+                            </div>
+                        ` : ''}
                     </div>
                 `).join('');
             }
@@ -2298,17 +2382,212 @@
             }
 
             const conditionsContainer = document.getElementById('detailTaskConditions');
-            conditionsContainer.innerHTML = task.conditions.map((c, index) => `
+            const refNoticeHtml = task.excludeFromReferral
+                ? `<div class="flex items-start space-x-2 bg-amber-50 p-2.5 rounded-xl border border-amber-200 text-amber-900 font-bold text-[11px]">
+                    <i class="fa-solid fa-circle-exclamation text-amber-600 mt-0.5 shrink-0"></i>
+                    <span>Referral Notice: Completing this offer does not count toward referral tasks or generate referral commission.</span>
+                   </div>`
+                : '';
+            conditionsContainer.innerHTML = refNoticeHtml + task.conditions.map((c, index) => `
                 <div class="flex items-start space-x-2.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
                     <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5">${index + 1}</span>
                     <p class="leading-relaxed text-slate-700">${escapeHtml(c)}</p>
                 </div>
             `).join('');
 
+            setupDetailProcessVideo(task.videoUrl || '');
             document.getElementById('taskDetailScreen').classList.remove('hidden');
         }
 
+        let videoPlaybackRates = [1, 1.25, 1.5, 2];
+        let videoSpeedIdx = 0;
+
+        function formatVideoSeconds(sec) {
+            const s = Math.max(0, Math.floor(Number(sec) || 0));
+            const mins = Math.floor(s / 60);
+            const rem = s % 60;
+            return `${mins}:${rem < 10 ? '0' : ''}${rem}`;
+        }
+
+        function getEmbedVideoUrl(rawUrl) {
+            const u = String(rawUrl || '').trim();
+            if (!u) return '';
+            const ytMatch = u.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+            if (ytMatch && ytMatch[1]) {
+                return `https://www.youtube.com/embed/${ytMatch[1]}?rel=0`;
+            }
+            const driveMatch = u.match(/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]+)/);
+            if (driveMatch && driveMatch[1]) {
+                return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+            }
+            return '';
+        }
+
+        function resetProcessVideoUI() {
+            const playIcon = document.getElementById('centerPlayPauseIcon');
+            const timeText = document.getElementById('videoCurrentTimeText');
+            const fillEl = document.getElementById('videoProgressFill');
+            const speedEl = document.getElementById('videoSpeedLabel');
+            if (playIcon) {
+                playIcon.classList.remove('fa-pause');
+                playIcon.classList.add('fa-play', 'ml-0.5');
+            }
+            if (timeText) timeText.innerText = '0:00';
+            if (fillEl) fillEl.style.width = '0%';
+            videoSpeedIdx = 0;
+            if (speedEl) speedEl.innerText = '1x';
+        }
+
+        function isDirectVideoFileUrl(rawUrl) {
+            const clean = String(rawUrl || '').split('?')[0].split('#')[0].toLowerCase();
+            return /\.(mp4|webm|ogg|mov|m4v)$/.test(clean);
+        }
+
+        function showProcessVideoFallback(url, msg = 'This video link cannot play inline. Tap below to open it.') {
+            const videoEl = document.getElementById('detailProcessVideo');
+            const iframeEl = document.getElementById('detailProcessIframe');
+            const overlayEl = document.getElementById('customVideoControlsOverlay');
+            const fallbackEl = document.getElementById('detailProcessVideoFallback');
+            const fallbackMsg = document.getElementById('detailProcessVideoFallbackMsg');
+            const extLink = document.getElementById('detailProcessVideoExternalLink');
+            if (videoEl) videoEl.classList.add('hidden');
+            if (iframeEl) iframeEl.classList.add('hidden');
+            if (overlayEl) overlayEl.classList.add('hidden');
+            if (fallbackMsg) fallbackMsg.innerText = msg;
+            if (extLink) {
+                extLink.href = url || '#';
+                extLink.classList.toggle('hidden', !url || url === '#');
+            }
+            if (fallbackEl) fallbackEl.classList.remove('hidden');
+        }
+
+        function setupDetailProcessVideo(rawUrl) {
+            const section = document.getElementById('detailTaskVideoSection');
+            const videoEl = document.getElementById('detailProcessVideo');
+            const iframeEl = document.getElementById('detailProcessIframe');
+            const overlayEl = document.getElementById('customVideoControlsOverlay');
+            const fallbackEl = document.getElementById('detailProcessVideoFallback');
+            if (!section || !videoEl || !iframeEl || !overlayEl) return;
+
+            const cleanUrl = String(rawUrl || '').trim();
+            videoEl.pause();
+            videoEl.removeAttribute('src');
+            iframeEl.src = '';
+            if (fallbackEl) fallbackEl.classList.add('hidden');
+            resetProcessVideoUI();
+
+            if (!cleanUrl) {
+                section.classList.add('hidden');
+                return;
+            }
+
+            section.classList.remove('hidden');
+            const embedUrl = getEmbedVideoUrl(cleanUrl);
+            if (embedUrl) {
+                videoEl.classList.add('hidden');
+                overlayEl.classList.add('hidden');
+                iframeEl.classList.remove('hidden');
+                iframeEl.src = embedUrl;
+            } else if (isDirectVideoFileUrl(cleanUrl)) {
+                iframeEl.classList.add('hidden');
+                videoEl.classList.remove('hidden');
+                overlayEl.classList.remove('hidden');
+                videoEl.src = cleanUrl;
+                videoEl.load();
+            } else {
+                showProcessVideoFallback(cleanUrl, 'Unsupported inline video link. Tap below to watch the process guide.');
+            }
+        }
+
+        function toggleProcessVideoPlay(e) {
+            if (e) e.stopPropagation();
+            const videoEl = document.getElementById('detailProcessVideo');
+            const playIcon = document.getElementById('centerPlayPauseIcon');
+            if (!videoEl) return;
+            if (videoEl.paused) {
+                videoEl.play().catch(() => {});
+                if (playIcon) {
+                    playIcon.classList.remove('fa-play', 'ml-0.5');
+                    playIcon.classList.add('fa-pause');
+                }
+            } else {
+                videoEl.pause();
+                if (playIcon) {
+                    playIcon.classList.remove('fa-pause');
+                    playIcon.classList.add('fa-play', 'ml-0.5');
+                }
+            }
+        }
+
+        function toggleProcessVideoMute(e) {
+            if (e) e.stopPropagation();
+            const videoEl = document.getElementById('detailProcessVideo');
+            const muteIcon = document.getElementById('videoMuteIcon');
+            if (!videoEl) return;
+            videoEl.muted = !videoEl.muted;
+            if (muteIcon) {
+                muteIcon.className = videoEl.muted ? 'fa-solid fa-volume-xmark text-xs' : 'fa-solid fa-volume-high text-xs';
+            }
+        }
+
+        function toggleProcessVideoFullscreen(e) {
+            if (e) e.stopPropagation();
+            const wrap = document.getElementById('detailTaskVideoPlayerWrap');
+            if (!wrap) return;
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+            } else if (wrap.requestFullscreen) {
+                wrap.requestFullscreen().catch(() => {});
+            }
+        }
+
+        function cycleProcessVideoSpeed(e) {
+            if (e) e.stopPropagation();
+            const videoEl = document.getElementById('detailProcessVideo');
+            const speedEl = document.getElementById('videoSpeedLabel');
+            if (!videoEl) return;
+            videoSpeedIdx = (videoSpeedIdx + 1) % videoPlaybackRates.length;
+            const rate = videoPlaybackRates[videoSpeedIdx];
+            videoEl.playbackRate = rate;
+            if (speedEl) speedEl.innerText = `${rate}x`;
+        }
+
+        function seekProcessVideo(e) {
+            if (e) e.stopPropagation();
+            const videoEl = document.getElementById('detailProcessVideo');
+            const track = document.getElementById('videoProgressTrack');
+            if (!videoEl || !track || !videoEl.duration) return;
+            const rect = track.getBoundingClientRect();
+            const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            videoEl.currentTime = ratio * videoEl.duration;
+        }
+
+        (function bindProcessVideoEvents() {
+            document.addEventListener('DOMContentLoaded', () => {
+                const videoEl = document.getElementById('detailProcessVideo');
+                if (!videoEl) return;
+                videoEl.addEventListener('timeupdate', () => {
+                    const timeText = document.getElementById('videoCurrentTimeText');
+                    const fillEl = document.getElementById('videoProgressFill');
+                    if (timeText) timeText.innerText = formatVideoSeconds(videoEl.currentTime);
+                    if (fillEl && videoEl.duration) {
+                        const pct = Math.max(0, Math.min(100, (videoEl.currentTime / videoEl.duration) * 100));
+                        fillEl.style.width = `${pct}%`;
+                    }
+                });
+                videoEl.addEventListener('ended', () => {
+                    resetProcessVideoUI();
+                });
+                videoEl.addEventListener('error', () => {
+                    if (videoEl.getAttribute('src')) {
+                        showProcessVideoFallback(videoEl.getAttribute('src'), 'Unable to load video inline. Tap below to open it.');
+                    }
+                });
+            });
+        })();
+
         function closeTaskDetail() {
+            setupDetailProcessVideo('');
             document.getElementById('taskDetailScreen').classList.add('hidden');
             selectedTaskId = null;
         }
@@ -2463,19 +2742,19 @@
                 affClickId: trackingId,
                 status: 'started',
                 offerSnapshot: {
-                    title: task.title, desc: task.desc, category: task.category, isPrime: Boolean(task.isPrime), hasInstallTracking: Boolean(task.hasInstallTracking), tag: task.tag,
+                    title: task.title, desc: task.desc, category: task.category, isPrime: Boolean(task.isPrime), hasInstallTracking: Boolean(task.hasInstallTracking), excludeFromReferral: Boolean(task.excludeFromReferral), tag: task.tag,
                     reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
                     requireProof: Boolean(task.requireProof), collectMobile: Boolean(task.collectMobile), allowProofSubmission: Boolean(task.allowProofSubmission), customFieldLabel: String(task.customFieldLabel || ''), icon: task.icon, color: task.color,
                     conditions: Array.isArray(task.conditions) ? task.conditions : []
                 }
             };
 
-            userTaskStatuses[task.id] = startedRecord;
-            saveLocalUserTasks(userTaskStatuses);
-
-            closeTaskDetail();
-            renderTasks();
-            renderMyOffers();
+            const startBtn = document.getElementById('detailStartBtn');
+            const prevBtnHtml = startBtn ? startBtn.innerHTML : '';
+            if (startBtn) {
+                startBtn.disabled = true;
+                startBtn.innerHTML = `<span>PREPARING TRACKING...</span><i class="fa-solid fa-spinner fa-spin"></i>`;
+            }
 
             try {
                 await Promise.all([
@@ -2495,8 +2774,26 @@
                     })
                 ]);
             } catch (err) {
-                console.warn('Click/task write:', err.message);
+                console.error('Click/task write failed:', err);
+                if (startBtn) {
+                    startBtn.disabled = false;
+                    startBtn.innerHTML = prevBtnHtml;
+                }
+                alert('Could not register your tracking click due to a network or permission error. Please check your connection and tap START NOW again.');
+                return;
             }
+
+            if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.innerHTML = prevBtnHtml;
+            }
+
+            userTaskStatuses[task.id] = startedRecord;
+            saveLocalUserTasks(userTaskStatuses);
+
+            closeTaskDetail();
+            renderTasks();
+            renderMyOffers();
 
             if (trackedUrl && trackedUrl !== '#') {
                 openOfferUrl(trackedUrl);
@@ -2609,6 +2906,7 @@
                         conditions: Array.isArray(task.conditions) ? task.conditions : []
                     },
                     category: task.category,
+                    excludeFromReferral: Boolean(task.excludeFromReferral),
                     reward: Number(task.reward || 0),
                     status: 'Pending',
                     proofSummary: proofNote || `Completed ${task.title}${cleanedMobile ? ` (${cleanedMobile})` : ''}`,
