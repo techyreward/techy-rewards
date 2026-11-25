@@ -1653,6 +1653,8 @@
                         }
                     }
                     updateWalletAndProfileUI();
+                    renderTasks();
+                    renderMyOffers();
                 }
             }, (err) => console.warn('users listener:', err.message));
 
@@ -1683,6 +1685,8 @@
                             hasInstallTracking: hasInstallTrackingFlag,
                             excludeFromReferral: excludeReferralFlag,
                             tag: hasPrimeFlag ? 'PRIME' : (isKyc ? 'KYC' : 'NON-KYC'),
+                            baseReward: Number(data.reward || data.payout || 0),
+                            referralUserReward: Number(data.referralUserReward || 0),
                             reward: Number(data.reward || data.payout || 0),
                             link: data.url || data.link || '#',
                             logo: data.logo || '',
@@ -1903,8 +1907,18 @@
                 const status = ut.status || 'available';
                 const isPrime = Boolean(offer.isPrime || String(offer.tag || '').toUpperCase() === 'PRIME');
                 const hasInstallTracking = Boolean(offer.hasInstallTracking);
+                const isReferredUser = Boolean(
+                    (userProfile && userProfile.referrerId) ||
+                    (startParamRef && startParamRef !== activeAccountId)
+                );
+                const refReward = Number(offer.referralUserReward || 0);
+                const baseReward = Number(offer.baseReward ?? offer.reward ?? 0);
+                const effectiveReward = (ut.offerSnapshot && ut.offerSnapshot.reward !== undefined && status !== 'available')
+                    ? Number(ut.offerSnapshot.reward)
+                    : ((isReferredUser && refReward > 0) ? refReward : baseReward);
                 return {
                     ...offer,
+                    reward: effectiveReward,
                     isPrime,
                     hasInstallTracking,
                     installTracked: Boolean(ut.installTracked === true || ut.installStatus === 'tracked'),
