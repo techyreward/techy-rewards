@@ -202,14 +202,6 @@
                 <div id="detailTaskVideoPlayerWrap" class="relative w-full aspect-video rounded-[1.25rem] bg-black overflow-hidden shadow-inner select-none">
                     <video id="detailProcessVideo" playsinline preload="metadata" class="w-full h-full object-contain bg-black"></video>
                     <iframe id="detailProcessIframe" class="hidden w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                    <div id="detailProcessVideoFallback" class="hidden w-full h-full flex flex-col items-center justify-center p-4 text-center text-white space-y-2 bg-slate-900">
-                        <i class="fa-solid fa-video-slash text-amber-400 text-xl"></i>
-                        <p id="detailProcessVideoFallbackMsg" class="text-xs font-bold text-slate-200">Unsupported video format or link.</p>
-                        <a id="detailProcessVideoExternalLink" href="#" target="_blank" onclick="return openTelegramTarget(event, this.href)" class="inline-flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black px-3.5 py-2 rounded-xl transition">
-                            <span>Open Video Guide</span>
-                            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                        </a>
-                    </div>
 
                     <!-- Custom Reference-Style Overlay Controls (for direct MP4/video files) -->
                     <div id="customVideoControlsOverlay" class="absolute inset-0 flex flex-col justify-between p-3 pointer-events-none transition-opacity duration-200">
@@ -1653,6 +1645,8 @@
                         }
                     }
                     updateWalletAndProfileUI();
+                    renderTasks();
+                    renderMyOffers();
                 }
             }, (err) => console.warn('users listener:', err.message));
 
@@ -1683,6 +1677,8 @@
                             hasInstallTracking: hasInstallTrackingFlag,
                             excludeFromReferral: excludeReferralFlag,
                             tag: hasPrimeFlag ? 'PRIME' : (isKyc ? 'KYC' : 'NON-KYC'),
+                            baseReward: Number(data.reward || data.payout || 0),
+                            referralUserReward: Number(data.referralUserReward || 0),
                             reward: Number(data.reward || data.payout || 0),
                             link: data.url || data.link || '#',
                             logo: data.logo || '',
@@ -1903,8 +1899,18 @@
                 const status = ut.status || 'available';
                 const isPrime = Boolean(offer.isPrime || String(offer.tag || '').toUpperCase() === 'PRIME');
                 const hasInstallTracking = Boolean(offer.hasInstallTracking);
+                const isReferredUser = Boolean(
+                    (userProfile && userProfile.referrerId) ||
+                    (startParamRef && startParamRef !== activeAccountId)
+                );
+                const refReward = Number(offer.referralUserReward || 0);
+                const baseReward = Number(offer.baseReward ?? offer.reward ?? 0);
+                const effectiveReward = (ut.offerSnapshot && ut.offerSnapshot.reward !== undefined && status !== 'available')
+                    ? Number(ut.offerSnapshot.reward)
+                    : ((isReferredUser && refReward > 0) ? refReward : baseReward);
                 return {
                     ...offer,
+                    reward: effectiveReward,
                     isPrime,
                     hasInstallTracking,
                     installTracked: Boolean(ut.installTracked === true || ut.installStatus === 'tracked'),
@@ -2438,42 +2444,17 @@
             if (speedEl) speedEl.innerText = '1x';
         }
 
-        function isDirectVideoFileUrl(rawUrl) {
-            const clean = String(rawUrl || '').split('?')[0].split('#')[0].toLowerCase();
-            return /\.(mp4|webm|ogg|mov|m4v)$/.test(clean);
-        }
-
-        function showProcessVideoFallback(url, msg = 'This video link cannot play inline. Tap below to open it.') {
-            const videoEl = document.getElementById('detailProcessVideo');
-            const iframeEl = document.getElementById('detailProcessIframe');
-            const overlayEl = document.getElementById('customVideoControlsOverlay');
-            const fallbackEl = document.getElementById('detailProcessVideoFallback');
-            const fallbackMsg = document.getElementById('detailProcessVideoFallbackMsg');
-            const extLink = document.getElementById('detailProcessVideoExternalLink');
-            if (videoEl) videoEl.classList.add('hidden');
-            if (iframeEl) iframeEl.classList.add('hidden');
-            if (overlayEl) overlayEl.classList.add('hidden');
-            if (fallbackMsg) fallbackMsg.innerText = msg;
-            if (extLink) {
-                extLink.href = url || '#';
-                extLink.classList.toggle('hidden', !url || url === '#');
-            }
-            if (fallbackEl) fallbackEl.classList.remove('hidden');
-        }
-
         function setupDetailProcessVideo(rawUrl) {
             const section = document.getElementById('detailTaskVideoSection');
             const videoEl = document.getElementById('detailProcessVideo');
             const iframeEl = document.getElementById('detailProcessIframe');
             const overlayEl = document.getElementById('customVideoControlsOverlay');
-            const fallbackEl = document.getElementById('detailProcessVideoFallback');
             if (!section || !videoEl || !iframeEl || !overlayEl) return;
 
             const cleanUrl = String(rawUrl || '').trim();
             videoEl.pause();
             videoEl.removeAttribute('src');
             iframeEl.src = '';
-            if (fallbackEl) fallbackEl.classList.add('hidden');
             resetProcessVideoUI();
 
             if (!cleanUrl) {
@@ -2488,14 +2469,12 @@
                 overlayEl.classList.add('hidden');
                 iframeEl.classList.remove('hidden');
                 iframeEl.src = embedUrl;
-            } else if (isDirectVideoFileUrl(cleanUrl)) {
+            } else {
                 iframeEl.classList.add('hidden');
                 videoEl.classList.remove('hidden');
                 overlayEl.classList.remove('hidden');
                 videoEl.src = cleanUrl;
                 videoEl.load();
-            } else {
-                showProcessVideoFallback(cleanUrl, 'Unsupported inline video link. Tap below to watch the process guide.');
             }
         }
 
@@ -2577,11 +2556,6 @@
                 });
                 videoEl.addEventListener('ended', () => {
                     resetProcessVideoUI();
-                });
-                videoEl.addEventListener('error', () => {
-                    if (videoEl.getAttribute('src')) {
-                        showProcessVideoFallback(videoEl.getAttribute('src'), 'Unable to load video inline. Tap below to open it.');
-                    }
                 });
             });
         })();
@@ -2749,12 +2723,12 @@
                 }
             };
 
-            const startBtn = document.getElementById('detailStartBtn');
-            const prevBtnHtml = startBtn ? startBtn.innerHTML : '';
-            if (startBtn) {
-                startBtn.disabled = true;
-                startBtn.innerHTML = `<span>PREPARING TRACKING...</span><i class="fa-solid fa-spinner fa-spin"></i>`;
-            }
+            userTaskStatuses[task.id] = startedRecord;
+            saveLocalUserTasks(userTaskStatuses);
+
+            closeTaskDetail();
+            renderTasks();
+            renderMyOffers();
 
             try {
                 await Promise.all([
@@ -2774,26 +2748,8 @@
                     })
                 ]);
             } catch (err) {
-                console.error('Click/task write failed:', err);
-                if (startBtn) {
-                    startBtn.disabled = false;
-                    startBtn.innerHTML = prevBtnHtml;
-                }
-                alert('Could not register your tracking click due to a network or permission error. Please check your connection and tap START NOW again.');
-                return;
+                console.warn('Click/task write:', err.message);
             }
-
-            if (startBtn) {
-                startBtn.disabled = false;
-                startBtn.innerHTML = prevBtnHtml;
-            }
-
-            userTaskStatuses[task.id] = startedRecord;
-            saveLocalUserTasks(userTaskStatuses);
-
-            closeTaskDetail();
-            renderTasks();
-            renderMyOffers();
 
             if (trackedUrl && trackedUrl !== '#') {
                 openOfferUrl(trackedUrl);
