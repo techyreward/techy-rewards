@@ -751,15 +751,21 @@
 
                 <button onclick="openRaiseTicket()" class="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition text-left">
                     <div class="flex items-center space-x-3.5">
-                        <div class="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-lg">
+                        <div class="relative w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-lg">
                             <i class="fa-solid fa-ticket"></i>
+                            <span id="raiseTicketRowRedDot" class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white"></span>
                         </div>
                         <div>
-                            <h4 class="font-bold text-slate-900 text-xs">Raise Ticket</h4>
+                            <div class="flex items-center space-x-1.5">
+                                <h4 class="font-bold text-slate-900 text-xs">Raise Ticket</h4>
+                            </div>
                             <p class="text-[11px] text-slate-500">Submit complaint or missing payment</p>
                         </div>
                     </div>
-                    <i class="fa-solid fa-angle-right text-slate-400 text-xs"></i>
+                    <div class="flex items-center space-x-2">
+                        <span id="raiseTicketBadgeRedDot" class="hidden w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                        <i class="fa-solid fa-angle-right text-slate-400 text-xs"></i>
+                    </div>
                 </button>
 
                 <button onclick="openTermsModal()" class="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition text-left">
@@ -858,6 +864,24 @@
                 <div class="w-9"></div>
             </div>
 
+            <!-- My Tickets Section Card -->
+            <button type="button" onclick="openMyTicketsScreen()" class="w-full bg-white hover:border-emerald-500/50 active:scale-[0.99] border border-slate-200/90 rounded-3xl p-4 flex items-center justify-between shadow-sm transition text-left">
+                <div class="flex items-center space-x-3.5">
+                    <div class="relative w-11 h-11 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center text-base shrink-0">
+                        <i class="fa-solid fa-folder-open"></i>
+                        <span id="myTicketsBtnRedDot" class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white"></span>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h4 class="font-black text-slate-900 text-sm">My Tickets</h4>
+                            <span id="myTicketsCountBadge" class="text-[10px] font-black bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">0</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 font-medium">View admin replies, status &amp; manage tickets</p>
+                    </div>
+                </div>
+                <i class="fa-solid fa-chevron-right text-slate-400 text-xs"></i>
+            </button>
+
             <!-- Ticket Submission Card -->
             <div class="bg-white border border-slate-200/80 rounded-3xl p-5 space-y-4 shadow-sm">
                 <div class="space-y-1">
@@ -907,6 +931,38 @@
         </div>
     </div>
 
+    <!-- FULL PAGE MY TICKETS LIST SCREEN -->
+    <div id="myTicketsScreen" class="fixed inset-0 bg-[#f8fafc] z-50 hidden overflow-y-auto p-4 pb-10">
+        <div class="max-w-md mx-auto w-full space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                <button onclick="closeMyTicketsScreen()" class="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center hover:bg-slate-100 transition shadow-sm">
+                    <i class="fa-solid fa-chevron-left text-sm"></i>
+                </button>
+                <span class="text-xs font-black tracking-widest text-purple-600 uppercase">My Tickets</span>
+                <div class="w-9"></div>
+            </div>
+            <div id="myTicketsListContainer" class="space-y-3">
+                <!-- Tickets rendered dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- FULL PAGE TICKET DETAIL SCREEN (SHOWS FULL ADMIN RESPONSE) -->
+    <div id="ticketDetailScreen" class="fixed inset-0 bg-[#f8fafc] z-50 hidden overflow-y-auto p-4 pb-10">
+        <div class="max-w-md mx-auto w-full space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                <button onclick="closeTicketDetailScreen()" class="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center hover:bg-slate-100 transition shadow-sm">
+                    <i class="fa-solid fa-chevron-left text-sm"></i>
+                </button>
+                <span class="text-xs font-black tracking-widest text-purple-600 uppercase">Ticket Details</span>
+                <div class="w-9"></div>
+            </div>
+            <div id="ticketDetailBody" class="space-y-4">
+                <!-- Full ticket details & admin written description injected here -->
+            </div>
+        </div>
+    </div>
+
     <!-- BOTTOM NAVIGATION BAR -->
     <nav class="fixed bottom-0 left-0 right-0 glass-nav py-2.5 px-6 flex justify-between items-center z-40 max-w-md mx-auto shadow-lg">
         <button onclick="switchTab('home')" id="nav-home" class="nav-item flex flex-col items-center text-emerald-600">
@@ -921,8 +977,11 @@
             <i class="fa-solid fa-wallet text-lg"></i>
             <span class="text-[10px] font-black mt-0.5">Wallet</span>
         </button>
-        <button onclick="switchTab('profile')" id="nav-profile" class="nav-item flex flex-col items-center text-slate-400">
-            <i class="fa-solid fa-user text-lg"></i>
+        <button onclick="switchTab('profile')" id="nav-profile" class="nav-item relative flex flex-col items-center text-slate-400">
+            <div class="relative inline-flex">
+                <i class="fa-solid fa-user text-lg"></i>
+                <span id="profileNavRedDot" class="hidden absolute -top-0.5 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white"></span>
+            </div>
             <span class="text-[10px] font-black mt-0.5">Profile</span>
         </button>
     </nav>
@@ -1192,6 +1251,8 @@
         let referralsData = [];
         let directReferralsList = [];
         let legacyReferralsList = [];
+        let userTicketsData = [];
+        let selectedTicketDetailId = null;
 
         let offersLoaded = false;
         let userTasksLoaded = false;
@@ -1757,29 +1818,47 @@
             db.collection('submissions').where('userId', '==', activeAccountId).onSnapshot((snap) => {
                 const subDocs = [];
                 const latestByTask = {};
+                const taskSubsMap = {};
                 const orderedDocs = [...snap.docs].sort((a, b) => {
                     const at = a.data().createdAt?.seconds || 0;
                     const bt = b.data().createdAt?.seconds || 0;
                     return at - bt;
                 });
                 orderedDocs.forEach((d) => {
-                    const data = d.data();
+                    const data = { id: d.id, ...d.data() };
                     subDocs.push(data);
                     if (!data.taskId) return;
+                    if (!taskSubsMap[data.taskId]) taskSubsMap[data.taskId] = [];
+                    taskSubsMap[data.taskId].push(data);
+                });
+
+                Object.entries(taskSubsMap).forEach(([taskId, subs]) => {
+                    const latest = subs[subs.length - 1];
+                    const rejectedCount = subs.filter((s) => s.status === 'Rejected').length;
+                    const hasApproved = subs.some((s) => s.status === 'Approved');
+                    const hasPending = subs.some((s) => s.status === 'Pending');
 
                     let mappedStatus = 'submitted';
-                    if (data.status === 'Approved') mappedStatus = 'completed';
-                    else if (data.status === 'Rejected') mappedStatus = 'rejected';
-                    else if (data.status === 'Pending') mappedStatus = 'submitted';
+                    if (hasApproved) {
+                        mappedStatus = 'completed';
+                    } else if (hasPending) {
+                        mappedStatus = 'submitted';
+                    } else if (latest.status === 'Rejected') {
+                        // Allow 2 tries: if first proof was rejected (rejectedCount === 1), user can retry in Ongoing
+                        mappedStatus = rejectedCount >= 2 ? 'rejected' : 'started';
+                    }
 
-                    latestByTask[data.taskId] = {
+                    latestByTask[taskId] = {
                         status: mappedStatus,
-                        rejectReason: data.rejectReason || '',
-                        offerSnapshot: data.offerSnapshot || (data.taskName ? {
-                            title: data.taskName, desc: 'Previously started offer', category: data.category || 'kyc',
+                        attemptCount: subs.length,
+                        rejectedCount: rejectedCount,
+                        canRetry: !hasApproved && !hasPending && rejectedCount === 1,
+                        rejectReason: latest.rejectReason || '',
+                        offerSnapshot: latest.offerSnapshot || (latest.taskName ? {
+                            title: latest.taskName, desc: 'Previously started offer', category: latest.category || 'kyc',
                             isPrime: false,
-                            tag: (data.category || 'kyc') === 'kyc' ? 'KYC' : 'NON-KYC',
-                            reward: Number(data.reward || 0), link: '#', logo: '', requireProof: true,
+                            tag: (latest.category || 'kyc') === 'kyc' ? 'KYC' : 'NON-KYC',
+                            reward: Number(latest.reward || 0), link: '#', logo: '', requireProof: true,
                             icon: 'fa-gift', color: 'from-emerald-500 to-teal-600', conditions: []
                         } : null)
                     };
@@ -1898,6 +1977,17 @@
                 });
                 mergeReferralSources();
             }, (err) => console.warn('legacy referrals listener:', err.message));
+
+            db.collection('tickets').where('userId', '==', activeAccountId).onSnapshot((snap) => {
+                userTicketsData = snap.docs
+                    .map((d) => ({ id: d.id, ...d.data() }))
+                    .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                updateTicketNotificationDots();
+                renderMyTickets();
+                if (selectedTicketDetailId) {
+                    renderTicketDetail(selectedTicketDetailId);
+                }
+            }, (err) => console.warn('tickets listener:', err.message));
         }
 
         function getMergedTasks() {
@@ -1916,7 +2006,11 @@
                 const baseTask = userTaskStatuses[offer.id] || {};
                 const decision = submissionTaskStatuses[offer.id] || {};
                 const ut = { ...baseTask, ...decision };
-                const status = ut.status || 'available';
+                // If admin directly rejected userTasks without submissions (or 2nd submission rejected), keep rejected
+                let status = ut.status || 'available';
+                if (baseTask.status === 'rejected' && !decision.canRetry) {
+                    status = 'rejected';
+                }
                 const isPrime = Boolean(offer.isPrime || String(offer.tag || '').toUpperCase() === 'PRIME');
                 const hasInstallTracking = Boolean(offer.hasInstallTracking);
                 const isReferredUser = Boolean(
@@ -1928,6 +2022,9 @@
                 const effectiveReward = (ut.offerSnapshot && ut.offerSnapshot.reward !== undefined && status !== 'available')
                     ? Number(ut.offerSnapshot.reward)
                     : ((isReferredUser && refReward > 0) ? refReward : baseReward);
+                const trackingMessages = Array.isArray(baseTask.trackingMessages)
+                    ? baseTask.trackingMessages
+                    : (baseTask.trackingMessage ? [{ text: baseTask.trackingMessage, checked: Boolean(baseTask.trackingChecked) }] : []);
                 return {
                     ...offer,
                     reward: effectiveReward,
@@ -1935,7 +2032,11 @@
                     hasInstallTracking,
                     installTracked: Boolean(ut.installTracked === true || ut.installStatus === 'tracked'),
                     status,
-                    rejectReason: ut.rejectReason || '',
+                    attemptCount: Number(decision.attemptCount || 0),
+                    rejectedCount: Number(decision.rejectedCount || 0),
+                    canRetry: Boolean(decision.canRetry),
+                    rejectReason: decision.rejectReason || baseTask.rejectReason || '',
+                    trackingMessages,
                     hiddenFromActive: status !== 'available'
                 };
             });
@@ -2292,27 +2393,68 @@
                             `);
 
                     const showInstallTracked = Boolean(task.installTracked);
-                    return `
-                        <div onclick="closeMyOffersScreen(); openTaskDetail('${task.id}')" class="bg-white border border-slate-200/80 p-4 rounded-3xl shadow-sm space-y-3 cursor-pointer hover:border-emerald-500/50 transition">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-3.5 min-w-0 pr-2">
-                                    ${renderOfferAvatar(task, 'w-12 h-12 rounded-2xl text-base')}
-                                    <div class="space-y-1 min-w-0">
-                                        <div class="flex flex-wrap items-center gap-1.5">
-                                            ${shouldShowPrimeBadge(task) ? `<span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">PRIME</span>` : ''}
-                                            ${showInstallTracked ? `<span class="text-[9px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full uppercase tracking-wider">Install Tracked</span>` : ''}
-                                        </div>
-                                        <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(task.title)}</h4>
-                                        <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
-                                    </div>
-                                </div>
-                                <div class="shrink-0 text-right">
-                                    <span class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-sm block">
-                                        +₹${task.reward}
+                    const trackingMsgs = Array.isArray(task.trackingMessages) ? task.trackingMessages : [];
+                    const hasMultipleTracking = trackingMsgs.length > 1;
+                    const trackingHtml = trackingMsgs.length > 0
+                        ? `
+                            <div onclick="event.stopPropagation()" class="bg-sky-50/90 border border-sky-200/90 rounded-2xl p-3 space-y-1.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] font-black text-sky-800 uppercase tracking-wider flex items-center gap-1">
+                                        <i class="fa-solid fa-route text-sky-600"></i> Tracking Updates
                                     </span>
+                                    ${hasMultipleTracking ? `<span class="text-[9px] font-bold text-sky-600">Swipe → (${trackingMsgs.length})</span>` : ''}
+                                </div>
+                                <div class="${hasMultipleTracking ? 'flex overflow-x-auto gap-2 pb-1 snap-x snap-mandatory' : 'space-y-1.5'}">
+                                    ${trackingMsgs.map((tm) => `
+                                        <div class="${hasMultipleTracking ? 'min-w-[85%] snap-start shrink-0' : 'w-full'} bg-white border border-sky-200/80 rounded-xl px-3 py-2 flex items-start justify-between gap-2 shadow-2xs">
+                                            <p class="text-xs font-semibold text-slate-800 leading-snug break-words">${escapeHtml(tm.text || '')}</p>
+                                            ${tm.checked ? `<span class="text-sm shrink-0 leading-none" title="Completed">✅</span>` : ''}
+                                        </div>
+                                    `).join('')}
                                 </div>
                             </div>
-                            ${isSubmitted ? proofSectionHtml : (showProofForm ? proofSectionHtml : '')}
+                        `
+                        : '';
+
+                    const retryBannerHtml = task.canRetry
+                        ? `
+                            <div onclick="event.stopPropagation()" class="bg-amber-50 border border-amber-300/90 rounded-2xl p-3 space-y-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] font-black text-amber-900 uppercase tracking-wider flex items-center gap-1">
+                                        <i class="fa-solid fa-rotate-right text-amber-600"></i> 1st Proof Rejected • 2nd Attempt Available (2/2)
+                                    </span>
+                                </div>
+                                ${task.rejectReason ? `<p class="text-xs font-semibold text-rose-700 leading-relaxed whitespace-pre-wrap break-words">Reason: ${escapeHtml(task.rejectReason)}</p>` : ''}
+                            </div>
+                        `
+                        : '';
+
+                    return `
+                        <div class="space-y-2">
+                            <div onclick="closeMyOffersScreen(); openTaskDetail('${task.id}')" class="bg-white border border-slate-200/80 p-4 rounded-3xl shadow-sm space-y-3 cursor-pointer hover:border-emerald-500/50 transition">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-3.5 min-w-0 pr-2">
+                                        ${renderOfferAvatar(task, 'w-12 h-12 rounded-2xl text-base')}
+                                        <div class="space-y-1 min-w-0">
+                                            <div class="flex flex-wrap items-center gap-1.5">
+                                                ${shouldShowPrimeBadge(task) ? `<span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">PRIME</span>` : ''}
+                                                ${showInstallTracked ? `<span class="text-[9px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full uppercase tracking-wider">Install Tracked</span>` : ''}
+                                                ${task.canRetry ? `<span class="text-[9px] font-black text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full uppercase tracking-wider">Try 2 of 2</span>` : ''}
+                                            </div>
+                                            <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(task.title)}</h4>
+                                            <p class="text-xs text-slate-500 truncate">${escapeHtml(task.desc)}</p>
+                                        </div>
+                                    </div>
+                                    <div class="shrink-0 text-right">
+                                        <span class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-sm block">
+                                            +₹${task.reward}
+                                        </span>
+                                    </div>
+                                </div>
+                                ${retryBannerHtml}
+                                ${isSubmitted ? proofSectionHtml : (showProofForm ? proofSectionHtml : '')}
+                            </div>
+                            ${trackingHtml}
                         </div>
                     `;
                 }).join('');
@@ -2334,23 +2476,31 @@
                 `).join('');
             } else if (currentMyOffersTab === 'rejected') {
                 container.innerHTML = filtered.map(task => `
-                    <div class="bg-white/95 border border-slate-200/90 rounded-3xl p-4 flex items-center justify-between opacity-90 select-none shadow-sm">
-                        <div class="flex items-center space-x-3.5 min-w-0 pr-2">
-                            ${renderOfferAvatar(task, 'w-11 h-11 rounded-2xl text-base opacity-75')}
-                            <div class="min-w-0">
-                                <div class="flex items-center space-x-1.5">
-                                    <h4 class="font-black text-slate-800 text-sm truncate">${escapeHtml(task.title)}</h4>
-                                    ${shouldShowPrimeBadge(task) ? `<span class="text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full uppercase shrink-0">PRIME</span>` : ''}
+                    <div class="bg-white/95 border border-rose-200/90 rounded-3xl p-4 space-y-2.5 select-none shadow-sm">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center space-x-3.5 min-w-0 pr-2">
+                                ${renderOfferAvatar(task, 'w-11 h-11 rounded-2xl text-base opacity-80')}
+                                <div class="min-w-0">
+                                    <div class="flex items-center space-x-1.5">
+                                        <h4 class="font-black text-slate-800 text-sm truncate">${escapeHtml(task.title)}</h4>
+                                        ${shouldShowPrimeBadge(task) ? `<span class="text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full uppercase shrink-0">PRIME</span>` : ''}
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 font-medium truncate">${escapeHtml(task.desc)}</p>
                                 </div>
-                                <p class="text-[11px] text-slate-500 font-medium truncate">${escapeHtml(task.rejectReason || task.desc)}</p>
+                            </div>
+                            <div class="text-right space-y-1 shrink-0">
+                                <span class="inline-flex items-center space-x-1 bg-rose-100 text-rose-700 text-[10px] font-black px-2.5 py-1 rounded-full">
+                                    <i class="fa-solid fa-lock text-[9px]"></i>
+                                    <span>Rejected</span>
+                                </span>
                             </div>
                         </div>
-                        <div class="text-right space-y-1 shrink-0">
-                            <span class="inline-flex items-center space-x-1 bg-rose-100 text-rose-700 text-[10px] font-black px-2.5 py-1 rounded-full">
-                                <i class="fa-solid fa-lock text-[9px]"></i>
-                                <span>Rejected</span>
-                            </span>
-                        </div>
+                        ${task.rejectReason ? `
+                            <div class="bg-rose-50/90 border border-rose-200 rounded-2xl p-3 space-y-1">
+                                <span class="text-[10px] font-black text-rose-700 uppercase tracking-wider block">Rejection Reason</span>
+                                <p class="text-xs font-semibold text-rose-900 leading-relaxed whitespace-pre-wrap break-words">${escapeHtml(task.rejectReason)}</p>
+                            </div>
+                        ` : ''}
                     </div>
                 `).join('');
             }
@@ -2783,22 +2933,26 @@
             }
 
             try {
-                await Promise.all([
-                    db.collection('userTasks').doc(`${activeAccountId}_${task.id}`).set({
-                        ...startedRecord,
-                        startedAt: FieldValue.serverTimestamp()
-                    }, { merge: true }),
-                    db.collection('offerClicks').doc(trackingId).set({
-                        affClickId: trackingId,
-                        userId: activeAccountId,
-                        userName: activeDisplayName,
-                        offerId: task.id,
-                        offerName: task.title,
-                        status: 'clicked',
-                        date: formatNowDate(),
-                        createdAt: FieldValue.serverTimestamp()
-                    })
-                ]);
+                // Commit both tracking records together. A batch prevents the old
+                // Promise.all failure mode where one write succeeded and the other did not.
+                const batch = db.batch();
+                const userTaskRef = db.collection('userTasks').doc(`${activeAccountId}_${task.id}`);
+                const clickRef = db.collection('offerClicks').doc(trackingId);
+                batch.set(userTaskRef, {
+                    ...startedRecord,
+                    startedAt: FieldValue.serverTimestamp()
+                }, { merge: true });
+                batch.set(clickRef, {
+                    affClickId: trackingId,
+                    userId: activeAccountId,
+                    userName: activeDisplayName,
+                    offerId: task.id,
+                    offerName: task.title,
+                    status: 'clicked',
+                    date: formatNowDate(),
+                    createdAt: FieldValue.serverTimestamp()
+                });
+                await batch.commit();
             } catch (err) {
                 console.error('Click/task write failed:', err);
                 if (startBtn) {
@@ -2911,6 +3065,16 @@
                 return;
             }
 
+            const nextAttemptNumber = Number(task.rejectedCount || 0) + 1;
+            if (nextAttemptNumber > 2) {
+                alert('Maximum 2 proof submission attempts reached for this task.');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Submit Details';
+                }
+                return;
+            }
+
             const nowStr = formatNowDate();
 
             try {
@@ -2925,6 +3089,7 @@
                     customFieldValue: customAllowed ? customValue : '',
                     taskId: task.id,
                     taskName: task.title,
+                    attemptNumber: nextAttemptNumber,
                     offerSnapshot: {
                         title: task.title, desc: task.desc, category: task.category, isPrime: Boolean(task.isPrime), tag: task.tag,
                         reward: Number(task.reward || 0), link: task.link || '#', logo: task.logo || '',
@@ -3416,17 +3581,27 @@
 
             try {
                 const userRef = db.collection('users').doc(activeAccountId);
+                const settingsRef = db.collection('settings').doc('app');
                 const wdRef = db.collection('withdrawals').doc();
 
+                // Re-check balance, account status and minimum against Firestore values
+                // inside the same transaction that reserves the withdrawal amount.
                 await db.runTransaction(async (tx) => {
                     const userSnap = await tx.get(userRef);
-                    const serverBal = userSnap.exists ? Math.round(Number(userSnap.data().balance || 0) * 100) / 100 : 0;
-                    if (amount > serverBal) {
-                        throw new Error(`INSUFFICIENT:${serverBal.toFixed(2)}`);
+                    const settingsSnap = await tx.get(settingsRef);
+                    if (!userSnap.exists) throw new Error('USER_NOT_FOUND');
+                    const userData = userSnap.data() || {};
+                    if (userData.suspended === true) throw new Error('ACCOUNT_SUSPENDED');
+                    const serverBal = Math.round(Number(userData.balance || 0) * 100) / 100;
+                    const serverMin = Math.max(1, Math.round(Number(settingsSnap.exists ? settingsSnap.data().minWithdrawal : 50) * 100) / 100);
+                    if (!Number.isFinite(amount) || amount <= 0 || Math.round(amount * 100) !== amount * 100) {
+                        throw new Error('INVALID_AMOUNT');
                     }
-                    tx.set(userRef, {
+                    if (amount < serverMin) throw new Error(`MINIMUM:${serverMin.toFixed(2)}`);
+                    if (amount > serverBal) throw new Error(`INSUFFICIENT:${serverBal.toFixed(2)}`);
+                    tx.update(userRef, {
                         balance: Math.round((serverBal - amount) * 100) / 100
-                    }, { merge: true });
+                    });
                     tx.set(wdRef, {
                         userId: activeAccountId,
                         userName: activeDisplayName,
@@ -3454,7 +3629,15 @@
                     const msg = String(err.message || '');
                     amountError.innerText = msg.startsWith('INSUFFICIENT:')
                         ? `Insufficient balance (Available: ₹${msg.split(':')[1]})`
-                        : 'Failed to submit withdrawal. Please try again.';
+                        : msg.startsWith('MINIMUM:')
+                            ? `Minimum withdrawal is ₹${msg.split(':')[1]}`
+                            : msg === 'ACCOUNT_SUSPENDED'
+                                ? 'Your account is suspended. Withdrawals are disabled.'
+                                : msg === 'USER_NOT_FOUND'
+                                    ? 'User account could not be verified. Please sign in again.'
+                                    : msg === 'INVALID_AMOUNT'
+                                        ? 'Please enter a valid withdrawal amount.'
+                                        : 'Failed to submit withdrawal. Please try again.';
                     amountError.classList.remove('hidden');
                 }
                 if (amountHint) amountHint.classList.add('hidden');
@@ -3585,6 +3768,171 @@
                     submitBtn.disabled = false;
                     submitBtn.innerText = 'Submit Ticket';
                 }
+            }
+        }
+
+        function hasUnreadResolvedTickets() {
+            return userTicketsData.some(
+                (tk) => tk.status === 'Resolved' && Boolean(tk.adminResponse) && tk.userSeenResolution !== true
+            );
+        }
+
+        function updateTicketNotificationDots() {
+            const hasUnread = hasUnreadResolvedTickets();
+            ['profileNavRedDot', 'raiseTicketRowRedDot', 'raiseTicketBadgeRedDot', 'myTicketsBtnRedDot'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.classList.toggle('hidden', !hasUnread);
+            });
+            const countBadge = document.getElementById('myTicketsCountBadge');
+            if (countBadge) countBadge.innerText = String(userTicketsData.length);
+        }
+
+        function openMyTicketsScreen() {
+            renderMyTickets();
+            document.getElementById('myTicketsScreen').classList.remove('hidden');
+        }
+
+        function closeMyTicketsScreen() {
+            document.getElementById('myTicketsScreen').classList.add('hidden');
+        }
+
+        function renderMyTickets() {
+            const container = document.getElementById('myTicketsListContainer');
+            if (!container) return;
+
+            if (userTicketsData.length === 0) {
+                container.innerHTML = `<div class="bg-white border border-slate-200 rounded-3xl p-6 text-center text-xs text-slate-500 font-semibold">No tickets submitted yet.</div>`;
+                return;
+            }
+
+            container.innerHTML = userTicketsData.map((tk) => {
+                const isResolved = tk.status === 'Resolved';
+                const hasUnreadReply = isResolved && Boolean(tk.adminResponse) && tk.userSeenResolution !== true;
+                const statusBadge = isResolved
+                    ? `<span class="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full">Resolved</span>`
+                    : `<span class="text-[10px] font-black bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">Open</span>`;
+
+                return `
+                    <div onclick="openTicketDetailScreen('${tk.id}')" class="bg-white border ${hasUnreadReply ? 'border-rose-300 ring-2 ring-rose-100' : 'border-slate-200/80'} rounded-3xl p-4 shadow-sm space-y-2.5 cursor-pointer hover:border-purple-400 transition">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center space-x-2">
+                                    ${hasUnreadReply ? `<span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>` : ''}
+                                    <h4 class="font-black text-slate-900 text-sm truncate">${escapeHtml(tk.offerName || 'Support Ticket')}</h4>
+                                </div>
+                                <span class="text-[11px] text-slate-400 font-medium block mt-0.5">${escapeHtml(tk.date || '')}</span>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0">
+                                ${statusBadge}
+                                <button type="button" onclick="deleteUserTicket(event, '${tk.id}')" title="Delete Ticket" class="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition">
+                                    <i class="fa-solid fa-trash text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-600 line-clamp-2">${escapeHtml(tk.description || '')}</p>
+                        ${tk.adminResponse ? `
+                            <div class="bg-emerald-50/80 border border-emerald-200/80 rounded-2xl px-3 py-2 flex items-center justify-between text-xs">
+                                <span class="font-bold text-emerald-800 truncate">Admin Reply: ${escapeHtml(tk.adminResponse)}</span>
+                                <i class="fa-solid fa-chevron-right text-emerald-600 text-[10px] shrink-0 ml-2"></i>
+                            </div>
+                        ` : `
+                            <div class="text-[11px] text-slate-400 font-semibold flex items-center justify-between">
+                                <span>Tap to view ticket details</span>
+                                <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                            </div>
+                        `}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function openTicketDetailScreen(ticketId) {
+            selectedTicketDetailId = ticketId;
+            renderTicketDetail(ticketId);
+            document.getElementById('ticketDetailScreen').classList.remove('hidden');
+
+            const tk = userTicketsData.find((x) => x.id === ticketId);
+            if (tk && tk.status === 'Resolved' && tk.userSeenResolution !== true) {
+                try {
+                    await db.collection('tickets').doc(ticketId).update({
+                        userSeenResolution: true
+                    });
+                } catch (err) {
+                    console.warn('Mark ticket seen note:', err.message);
+                }
+            }
+        }
+
+        function closeTicketDetailScreen() {
+            selectedTicketDetailId = null;
+            document.getElementById('ticketDetailScreen').classList.add('hidden');
+        }
+
+        function renderTicketDetail(ticketId) {
+            const body = document.getElementById('ticketDetailBody');
+            if (!body) return;
+            const tk = userTicketsData.find((x) => x.id === ticketId);
+            if (!tk) {
+                closeTicketDetailScreen();
+                return;
+            }
+            const isResolved = tk.status === 'Resolved';
+            body.innerHTML = `
+                <div class="bg-white border border-slate-200/80 rounded-3xl p-5 space-y-4 shadow-sm">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <span class="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${isResolved ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                                ${escapeHtml(tk.status || 'Open')}
+                            </span>
+                            <h3 class="font-black text-slate-900 text-base mt-2">${escapeHtml(tk.offerName || 'Support Ticket')}</h3>
+                            <p class="text-[11px] text-slate-400 font-medium">${escapeHtml(tk.date || '')}</p>
+                        </div>
+                        <button type="button" onclick="deleteUserTicket(event, '${tk.id}')" class="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-black flex items-center space-x-1.5 transition">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                            <span>Delete</span>
+                        </button>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <span class="text-[11px] font-black text-slate-500 uppercase tracking-wider block">Your Issue Description</span>
+                        <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-xs text-slate-800 leading-relaxed whitespace-pre-wrap break-words">${escapeHtml(tk.description || '')}</div>
+                    </div>
+
+                    ${tk.screenshotData ? `
+                        <div class="space-y-1.5">
+                            <span class="text-[11px] font-black text-slate-500 uppercase tracking-wider block">Uploaded Screenshot</span>
+                            <img src="${escapeHtml(tk.screenshotData)}" alt="Ticket Proof" class="w-full max-h-64 object-contain rounded-2xl border border-slate-200 bg-slate-900" />
+                        </div>
+                    ` : ''}
+
+                    <div class="space-y-1.5 pt-2 border-t border-slate-100">
+                        <span class="text-[11px] font-black text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-headset"></i> Admin Response
+                        </span>
+                        ${tk.adminResponse ? `
+                            <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-xs font-semibold text-emerald-950 leading-relaxed whitespace-pre-wrap break-words">${escapeHtml(tk.adminResponse)}</div>
+                        ` : `
+                            <div class="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3.5 text-xs font-medium text-amber-800">
+                                Our support team is reviewing your ticket. You will see the full reply here once resolved.
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function deleteUserTicket(event, ticketId) {
+            if (event) event.stopPropagation();
+            if (!ticketId) return;
+            if (!confirm('Are you sure you want to delete this ticket?')) return;
+            try {
+                await db.collection('tickets').doc(ticketId).delete();
+                if (selectedTicketDetailId === ticketId) {
+                    closeTicketDetailScreen();
+                }
+            } catch (err) {
+                console.error('Delete ticket error:', err);
+                alert('Could not delete ticket. Please try again.');
             }
         }
 
