@@ -27,6 +27,10 @@
     </script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Preconnect to Auth Worker & Firebase Backends for Faster Startup -->
+    <link rel="preconnect" href="https://techy-auth.studywithkhan3667.workers.dev" crossorigin>
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
     <!-- Official Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
@@ -191,54 +195,27 @@
                 </div>
             </div>
 
-            <!-- Optional Offer Process Video Card -->
-            <div id="detailTaskVideoSection" class="hidden bg-white border-2 border-slate-200/90 rounded-3xl p-4 space-y-2.5 shadow-md shrink-0">
+            <!-- Optional Offer Process Video Card (Clean, Native & Easy-to-Adjust) -->
+            <div id="detailTaskVideoSection" class="hidden bg-white border border-slate-200/90 rounded-3xl p-4 space-y-3 shadow-sm shrink-0">
                 <div class="flex items-center justify-between">
                     <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center">
                         <i class="fa-solid fa-circle-play mr-2 text-emerald-600 text-sm"></i> Video Process Guide
                     </h4>
-                    <span class="text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">Step-by-Step</span>
+                    <a id="detailProcessVideoExternalLink" href="#" target="_blank" onclick="return openTelegramTarget(event, this.href)" class="inline-flex items-center space-x-1 text-[10px] font-black bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full transition">
+                        <span>Full Screen</span>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                    </a>
                 </div>
-                <div id="detailTaskVideoPlayerWrap" class="relative w-full aspect-video rounded-[1.25rem] bg-black overflow-hidden shadow-inner select-none">
-                    <video id="detailProcessVideo" playsinline preload="metadata" class="w-full h-full object-contain bg-black"></video>
-                    <iframe id="detailProcessIframe" class="hidden w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                    <div id="detailProcessVideoFallback" class="hidden w-full h-full flex flex-col items-center justify-center p-4 text-center text-white space-y-2 bg-slate-900">
-                        <i class="fa-solid fa-video-slash text-amber-400 text-xl"></i>
-                        <p id="detailProcessVideoFallbackMsg" class="text-xs font-bold text-slate-200">Unsupported video format or link.</p>
-                        <a id="detailProcessVideoExternalLink" href="#" target="_blank" onclick="return openTelegramTarget(event, this.href)" class="inline-flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black px-3.5 py-2 rounded-xl transition">
-                            <span>Open Video Guide</span>
+                <div id="detailTaskVideoPlayerWrap" class="relative w-full aspect-video rounded-2xl bg-slate-950 overflow-hidden shadow-inner border border-slate-200/60">
+                    <video id="detailProcessVideo" controls controlsList="nodownload" playsinline preload="metadata" class="w-full h-full object-contain bg-black"></video>
+                    <iframe id="detailProcessIframe" class="hidden w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe>
+                    <div id="detailProcessVideoFallback" class="hidden w-full h-full flex flex-col items-center justify-center p-4 text-center text-white space-y-2.5 bg-slate-900">
+                        <i class="fa-solid fa-circle-play text-emerald-400 text-2xl"></i>
+                        <p id="detailProcessVideoFallbackMsg" class="text-xs font-bold text-slate-200">Tap below to watch the step-by-step video guide.</p>
+                        <a id="detailProcessVideoFallbackBtn" href="#" target="_blank" onclick="return openTelegramTarget(event, this.href)" class="inline-flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black px-4 py-2.5 rounded-xl transition shadow-md">
+                            <span>Watch Video Guide</span>
                             <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
                         </a>
-                    </div>
-
-                    <!-- Custom Reference-Style Overlay Controls (for direct MP4/video files) -->
-                    <div id="customVideoControlsOverlay" class="absolute inset-0 flex flex-col justify-between p-3 pointer-events-none transition-opacity duration-200">
-                        <div></div>
-                        <div class="flex items-center justify-center">
-                            <button id="centerPlayPauseBtn" type="button" onclick="toggleProcessVideoPlay(event)" class="pointer-events-auto w-14 h-14 rounded-full bg-slate-200/95 hover:bg-white active:scale-95 text-slate-950 flex items-center justify-center shadow-xl transition">
-                                <i id="centerPlayPauseIcon" class="fa-solid fa-play text-xl ml-0.5"></i>
-                            </button>
-                        </div>
-                        <div class="space-y-1.5">
-                            <div class="flex items-center justify-between text-white text-[11px] font-bold tracking-tight drop-shadow">
-                                <span id="videoCurrentTimeText" class="font-mono">0:00</span>
-                                <div class="flex items-center space-x-3 pointer-events-auto">
-                                    <button type="button" onclick="toggleProcessVideoMute(event)" class="hover:text-emerald-300 transition" title="Mute / Unmute">
-                                        <i id="videoMuteIcon" class="fa-solid fa-volume-high text-xs"></i>
-                                    </button>
-                                    <button type="button" onclick="toggleProcessVideoFullscreen(event)" class="hover:text-emerald-300 transition" title="Fullscreen">
-                                        <i class="fa-solid fa-expand text-xs"></i>
-                                    </button>
-                                    <button type="button" onclick="cycleProcessVideoSpeed(event)" class="px-1.5 py-0.5 rounded bg-black/50 hover:bg-black/75 text-[10px] font-extrabold transition" title="Playback Speed">
-                                        <span id="videoSpeedLabel">1x</span>
-                                    </button>
-                                </div>
-                            </div>
-                            <div onclick="seekProcessVideo(event)" id="videoProgressTrack" class="pointer-events-auto w-full h-1.5 bg-white/35 rounded-full cursor-pointer relative overflow-visible flex items-center">
-                                <div id="videoProgressFill" class="h-full bg-white rounded-full" style="width: 0%;"></div>
-                                <div id="videoProgressThumb" class="w-3.5 h-3.5 rounded-full bg-white shadow-md -ml-1.5 shrink-0" style="left: 0%;"></div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1003,7 +980,7 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
         try {
-            db.settings({ experimentalAutoDetectLongPolling: true });
+            db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
         } catch (_) {}
         const { FieldValue } = firebase.firestore;
 
@@ -1293,6 +1270,72 @@
             } catch (_) {}
         }
 
+        const OFFERS_CACHE_KEY = 'techy_cached_offers_v1';
+        const SETTINGS_CACHE_KEY = 'techy_cached_settings_v1';
+
+        function hydrateInstantCache(accountId) {
+            try {
+                const cachedSettings = localStorage.getItem(SETTINGS_CACHE_KEY);
+                if (cachedSettings) {
+                    appSettings = { ...appSettings, ...JSON.parse(cachedSettings) };
+                    applyAppSettingsUI();
+                }
+            } catch (_) {}
+
+            try {
+                const cachedOffers = localStorage.getItem(OFFERS_CACHE_KEY);
+                if (cachedOffers) {
+                    const parsed = JSON.parse(cachedOffers);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        liveOffers = parsed;
+                        offersLoaded = true;
+                    }
+                }
+            } catch (_) {}
+
+            if (!accountId) return;
+
+            try {
+                const cachedProfile = localStorage.getItem(`techy_cached_profile_${accountId}`);
+                if (cachedProfile) {
+                    userProfile = { ...userProfile, ...JSON.parse(cachedProfile) };
+                    updateWalletAndProfileUI();
+                }
+            } catch (_) {}
+
+            try {
+                const cachedTxns = localStorage.getItem(`techy_cached_txns_${accountId}`);
+                if (cachedTxns) {
+                    const parsedTx = JSON.parse(cachedTxns);
+                    if (Array.isArray(parsedTx) && parsedTx.length > 0) {
+                        transactionsData = parsedTx;
+                        renderWalletTransactions();
+                        renderEarningHistory();
+                    }
+                }
+            } catch (_) {}
+
+            try {
+                const cachedTasks = loadLocalUserTasks();
+                if (cachedTasks && Object.keys(cachedTasks).length > 0) {
+                    userTaskStatuses = { ...cachedTasks, ...userTaskStatuses };
+                    userTasksLoaded = true;
+                    submissionsLoaded = true;
+                }
+            } catch (_) {}
+        }
+
+        function persistOffersCache(offersArr) {
+            try {
+                // Strip heavy base64 logos if localStorage quota is tight, keep lightweight copy
+                const slim = (offersArr || []).map((o) => ({
+                    ...o,
+                    logo: (o.logo && o.logo.length > 60000) ? '' : (o.logo || '')
+                }));
+                localStorage.setItem(OFFERS_CACHE_KEY, JSON.stringify(slim));
+            } catch (_) {}
+        }
+
         // ==================== IMAGE COMPRESSION HELPER ====================
         function compressImageToBase64(file, maxWidth = 720, quality = 0.72) {
             return new Promise((resolve, reject) => {
@@ -1498,192 +1541,206 @@
             }
 
             currentDeviceId = await getOrCreateDeviceId();
-            currentIpAddress = await fetchPublicIpAddress();
             const deviceRef = db.collection('devices').doc(currentDeviceId);
-            const ipRef = currentIpAddress ? db.collection('ipLocks').doc(ipToDocKey(currentIpAddress)) : null;
             const userRef = db.collection('users').doc(verifiedUserId);
 
-            const resolvedId = await db.runTransaction(async (tx) => {
-                const deviceSnap = await tx.get(deviceRef);
-                const ipSnap = ipRef ? await tx.get(ipRef) : null;
-                const userSnap = await tx.get(userRef);
+            // Fast-path check for returning bound users: read device & user docs in parallel
+            // without waiting on external IP lookup if already verified on this device.
+            let initialUserData = null;
+            const fastBoundKey = `techy_device_bound_${verifiedUserId}_${currentDeviceId}`;
+            const hasLocalFastFlag = (() => {
+                try { return localStorage.getItem(fastBoundKey) === '1'; } catch (_) { return false; }
+            })();
 
-                const userData = userSnap.exists ? (userSnap.data() || {}) : null;
-                const deviceData = deviceSnap.exists ? (deviceSnap.data() || {}) : null;
-                const ipData = (ipSnap && ipSnap.exists) ? (ipSnap.data() || {}) : null;
+            if (hasLocalFastFlag) {
+                const [devSnap, usrSnap] = await Promise.all([deviceRef.get(), userRef.get()]);
+                const dData = devSnap.exists ? (devSnap.data() || {}) : null;
+                const uData = usrSnap.exists ? (usrSnap.data() || {}) : null;
+                if (dData?.boundUserId === verifiedUserId && uData?.boundDeviceId === currentDeviceId) {
+                    initialUserData = uData;
+                    // Refresh lastSeenAt and IP in background without blocking UI render
+                    fetchPublicIpAddress().then((ip) => {
+                        currentIpAddress = ip || '';
+                        const updates = { lastSeenAt: FieldValue.serverTimestamp(), lastOpenedByTelegramId: openerTelegramId };
+                        if (currentIpAddress) updates.ipAddress = currentIpAddress;
+                        deviceRef.set(updates, { merge: true }).catch(() => {});
+                        if (currentIpAddress && !uData.ipAddress) {
+                            userRef.set({ ipAddress: currentIpAddress }, { merge: true }).catch(() => {});
+                        }
+                    }).catch(() => {});
+                }
+            }
 
-                const userBoundDevice = userData?.boundDeviceId ? String(userData.boundDeviceId).trim() : '';
-                const deviceBoundUser = deviceData?.boundUserId ? String(deviceData.boundUserId).trim() : '';
-                const ipBoundUser = ipData?.boundUserId ? String(ipData.boundUserId).trim() : '';
-                const ipBoundDevice = ipData?.boundDeviceId ? String(ipData.boundDeviceId).trim() : '';
+            if (!initialUserData) {
+                currentIpAddress = await fetchPublicIpAddress();
+                const ipRef = currentIpAddress ? db.collection('ipLocks').doc(ipToDocKey(currentIpAddress)) : null;
 
-                // 1) If this device is already bound in `devices`, enforce `One Device = One ID`
-                if (deviceBoundUser) {
-                    if (deviceBoundUser !== verifiedUserId) {
-                        throw new Error("LOCKED_OTHER_USER: One Device = One ID. This device is bound to another account.");
+                const resolvedId = await db.runTransaction(async (tx) => {
+                    const [deviceSnap, userSnap, ipSnap] = await Promise.all([
+                        tx.get(deviceRef),
+                        tx.get(userRef),
+                        ipRef ? tx.get(ipRef) : Promise.resolve(null)
+                    ]);
+
+                    const userData = userSnap.exists ? (userSnap.data() || {}) : null;
+                    const deviceData = deviceSnap.exists ? (deviceSnap.data() || {}) : null;
+                    const ipData = (ipSnap && ipSnap.exists) ? (ipSnap.data() || {}) : null;
+
+                    const userBoundDevice = userData?.boundDeviceId ? String(userData.boundDeviceId).trim() : '';
+                    const deviceBoundUser = deviceData?.boundUserId ? String(deviceData.boundUserId).trim() : '';
+                    const ipBoundUser = ipData?.boundUserId ? String(ipData.boundUserId).trim() : '';
+                    const ipBoundDevice = ipData?.boundDeviceId ? String(ipData.boundDeviceId).trim() : '';
+
+                    // 1) If this device is already bound in `devices`, enforce `One Device = One ID`
+                    if (deviceBoundUser) {
+                        if (deviceBoundUser !== verifiedUserId) {
+                            throw new Error("LOCKED_OTHER_USER: One Device = One ID. This device is bound to another account.");
+                        }
+
+                        if (userBoundDevice !== currentDeviceId) {
+                            tx.set(userRef, {
+                                boundDeviceId: currentDeviceId,
+                                deviceHash: currentDeviceHash
+                            }, { merge: true });
+                        }
+
+                        tx.set(deviceRef, {
+                            deviceId: currentDeviceId,
+                            deviceHash: currentDeviceHash,
+                            boundUserId: verifiedUserId,
+                            ipAddress: currentIpAddress || '',
+                            lastOpenedByTelegramId: openerTelegramId,
+                            lastOpenedByName: openerUserName,
+                            lastSeenAt: FieldValue.serverTimestamp()
+                        }, { merge: true });
+
+                        if (ipRef && (!ipBoundUser || ipBoundUser === verifiedUserId)) {
+                            tx.set(ipRef, {
+                                ipAddress: currentIpAddress,
+                                boundUserId: verifiedUserId,
+                                boundDeviceId: currentDeviceId,
+                                lastOpenedByTelegramId: openerTelegramId,
+                                lastSeenAt: FieldValue.serverTimestamp()
+                            }, { merge: true });
+                        }
+                        initialUserData = { ...(userData || {}), boundDeviceId: currentDeviceId };
+                        return verifiedUserId;
                     }
 
-                    // Device is verified as belonging to this user: reconcile userBoundDevice if needed
-                    if (userBoundDevice !== currentDeviceId) {
-                        tx.set(userRef, {
+                    // 2) Device doc is NOT bound yet: check if reclaiming after WebView hash shift vs another device
+                    if (userBoundDevice && userBoundDevice !== currentDeviceId) {
+                        const sameUserIp = Boolean(ipBoundUser && ipBoundUser === verifiedUserId);
+                        const sameStoredHash = Boolean(userData?.deviceHash && userData.deviceHash === currentDeviceHash);
+                        if (!sameUserIp && !sameStoredHash) {
+                            throw new Error("LOCKED_OTHER_DEVICE: This account is locked to another device.");
+                        }
+                    }
+
+                    // 3) Check IP lock
+                    const userOwnsThisDevice = Boolean(userBoundDevice && userBoundDevice === currentDeviceId);
+                    if (!userOwnsThisDevice && ipBoundUser && ipBoundUser !== verifiedUserId) {
+                        if (!ipBoundDevice || ipBoundDevice !== currentDeviceId) {
+                            throw new Error("LOCKED_OTHER_USER: One Device = One ID. This network is bound to another account.");
+                        }
+                    }
+
+                    const primaryId = verifiedUserId;
+
+                    if (!userSnap.exists) {
+                        const newUserDoc = {
+                            name: openerUserName,
+                            handle: openerUserHandle,
+                            mobile: '',
+                            balance: 0,
+                            earned: 0,
+                            withdrawn: 0,
+                            referrer: null,
+                            referrerId: null,
+                            referralsCount: 0,
                             boundDeviceId: currentDeviceId,
-                            deviceHash: currentDeviceHash
+                            deviceHash: currentDeviceHash,
+                            ipAddress: currentIpAddress || '',
+                            deviceLockedAt: FieldValue.serverTimestamp(),
+                            createdAt: FieldValue.serverTimestamp()
+                        };
+
+                        if (startParamRef && startParamRef !== primaryId) {
+                            newUserDoc.referrerId = startParamRef;
+                            newUserDoc.referrer = startParamRef;
+                        }
+                        tx.set(userRef, newUserDoc, { merge: true });
+                        initialUserData = newUserDoc;
+                    } else {
+                        tx.set(userRef, {
+                            name: openerUserName,
+                            handle: openerUserHandle,
+                            boundDeviceId: userBoundDevice || currentDeviceId,
+                            deviceHash: currentDeviceHash,
+                            ipAddress: currentIpAddress || userData?.ipAddress || ''
                         }, { merge: true });
+                        initialUserData = { ...(userData || {}), boundDeviceId: userBoundDevice || currentDeviceId };
                     }
 
                     tx.set(deviceRef, {
                         deviceId: currentDeviceId,
                         deviceHash: currentDeviceHash,
-                        boundUserId: verifiedUserId,
-                        ipAddress: currentIpAddress || '',
-                        lastOpenedByTelegramId: openerTelegramId,
-                        lastOpenedByName: openerUserName,
-                        lastSeenAt: FieldValue.serverTimestamp()
-                    }, { merge: true });
-
-                    if (ipRef && (!ipBoundUser || ipBoundUser === verifiedUserId)) {
-                        tx.set(ipRef, {
-                            ipAddress: currentIpAddress,
-                            boundUserId: verifiedUserId,
-                            boundDeviceId: currentDeviceId,
-                            lastOpenedByTelegramId: openerTelegramId,
-                            lastSeenAt: FieldValue.serverTimestamp()
-                        }, { merge: true });
-                    }
-                    return verifiedUserId;
-                }
-
-                // 2) Device doc is NOT bound yet: if user has a different boundDeviceId,
-                //    check if this is the same device reclaiming after a WebView hash shift
-                //    (same IP as ipLocks for this user, or same deviceHash) vs genuinely another device.
-                if (userBoundDevice && userBoundDevice !== currentDeviceId) {
-                    const sameUserIp = Boolean(ipBoundUser && ipBoundUser === verifiedUserId);
-                    const sameStoredHash = Boolean(userData?.deviceHash && userData.deviceHash === currentDeviceHash);
-                    if (!sameUserIp && !sameStoredHash) {
-                        throw new Error("LOCKED_OTHER_DEVICE: This account is locked to another device.");
-                    }
-                }
-
-                // 3) Check IP lock ONLY when this user doesn't already own this device/account
-                //    and the IP belongs to a different user on a different device.
-                const userOwnsThisDevice = Boolean(userBoundDevice && userBoundDevice === currentDeviceId);
-                if (!userOwnsThisDevice && ipBoundUser && ipBoundUser !== verifiedUserId) {
-                    if (!ipBoundDevice || ipBoundDevice !== currentDeviceId) {
-                        throw new Error("LOCKED_OTHER_USER: One Device = One ID. This network is bound to another account.");
-                    }
-                }
-
-                const primaryId = verifiedUserId;
-
-                if (!userSnap.exists) {
-                    const newUserDoc = {
-                        name: openerUserName,
-                        handle: openerUserHandle,
-                        mobile: '',
-                        balance: 0,
-                        earned: 0,
-                        withdrawn: 0,
-                        referrer: null,
-                        referrerId: null,
-                        referralsCount: 0,
-                        boundDeviceId: currentDeviceId,
-                        deviceHash: currentDeviceHash,
-                        ipAddress: currentIpAddress || '',
-                        deviceLockedAt: FieldValue.serverTimestamp(),
-                        createdAt: FieldValue.serverTimestamp()
-                    };
-
-                    if (startParamRef && startParamRef !== primaryId) {
-                        newUserDoc.referrerId = startParamRef;
-                        newUserDoc.referrer = startParamRef;
-                    }
-                    tx.set(userRef, newUserDoc, { merge: true });
-                } else {
-                    tx.set(userRef, {
-                        name: openerUserName,
-                        handle: openerUserHandle,
-                        boundDeviceId: userBoundDevice || currentDeviceId,
-                        deviceHash: currentDeviceHash,
-                        ipAddress: currentIpAddress || userData?.ipAddress || ''
-                    }, { merge: true });
-                }
-
-                tx.set(deviceRef, {
-                    deviceId: currentDeviceId,
-                    deviceHash: currentDeviceHash,
-                    boundUserId: primaryId,
-                    boundUserName: openerUserName,
-                    ipAddress: currentIpAddress || '',
-                    createdAt: FieldValue.serverTimestamp(),
-                    lastSeenAt: FieldValue.serverTimestamp()
-                }, { merge: true });
-
-                if (ipRef && (!ipBoundUser || ipBoundUser === primaryId)) {
-                    tx.set(ipRef, {
-                        ipAddress: currentIpAddress,
                         boundUserId: primaryId,
                         boundUserName: openerUserName,
-                        boundDeviceId: currentDeviceId,
+                        ipAddress: currentIpAddress || '',
                         createdAt: FieldValue.serverTimestamp(),
                         lastSeenAt: FieldValue.serverTimestamp()
                     }, { merge: true });
+
+                    if (ipRef && (!ipBoundUser || ipBoundUser === primaryId)) {
+                        tx.set(ipRef, {
+                            ipAddress: currentIpAddress,
+                            boundUserId: primaryId,
+                            boundUserName: openerUserName,
+                            boundDeviceId: currentDeviceId,
+                            createdAt: FieldValue.serverTimestamp(),
+                            lastSeenAt: FieldValue.serverTimestamp()
+                        }, { merge: true });
+                    }
+
+                    return primaryId;
+                });
+
+                if (resolvedId !== verifiedUserId) {
+                    throw new Error("LOCKED_OTHER_USER: One Device = One ID. This device or IP is bound to another account.");
                 }
-
-                return primaryId;
-            });
-
-            if (resolvedId !== verifiedUserId) {
-                throw new Error("LOCKED_OTHER_USER: One Device = One ID. This device or IP is bound to another account.");
             }
+
+            try { localStorage.setItem(fastBoundKey, '1'); } catch (_) {}
 
             activeAccountId = verifiedUserId;
             userTaskStatuses = { ...loadLocalUserTasks(), ...userTaskStatuses };
 
-            const boundUserRef = db.collection('users').doc(activeAccountId);
-            const boundSnap = await boundUserRef.get();
-            if (boundSnap.exists) {
-                const boundData = boundSnap.data() || {};
-                activeDisplayName = boundData.name || openerUserName;
-                activeDisplayHandle = boundData.handle || openerUserHandle;
-
-                if (currentIpAddress && !boundData.ipAddress) {
-                    await boundUserRef.set({ ipAddress: currentIpAddress }, { merge: true });
-                }
-
-                if (!boundData.referrerId && startParamRef && startParamRef !== activeAccountId && startParamRef !== openerTelegramId) {
-                    const uplinerSnap = await db.collection('users').doc(startParamRef).get();
-                    const refName = uplinerSnap.exists ? (uplinerSnap.data().name || startParamRef) : startParamRef;
-                    await boundUserRef.set({
-                        referrerId: startParamRef,
-                        referrer: refName
-                    }, { merge: true });
-                    await createAdminReferralRecord(startParamRef, true);
-                } else if (boundData.referrerId) {
-                    await createAdminReferralRecord(boundData.referrerId, false);
-                }
-            } else {
-                await boundUserRef.set({
-                    name: openerUserName,
-                    handle: openerUserHandle,
-                    mobile: '',
-                    balance: 0,
-                    earned: 0,
-                    withdrawn: 0,
-                    referrer: startParamRef && startParamRef !== activeAccountId ? startParamRef : null,
-                    referrerId: startParamRef && startParamRef !== activeAccountId ? startParamRef : null,
-                    referralsCount: 0,
-                    boundDeviceId: currentDeviceId,
-                    deviceHash: currentDeviceHash,
-                    ipAddress: currentIpAddress || '',
-                    createdAt: FieldValue.serverTimestamp()
-                }, { merge: true });
-                if (startParamRef && startParamRef !== activeAccountId) {
-                    await createAdminReferralRecord(startParamRef, true);
-                }
-            }
+            // Use initialUserData already read in transaction/fast-path without extra blocking userRef.get()
+            const boundData = initialUserData || {};
+            userProfile = { ...userProfile, ...boundData };
+            activeDisplayName = boundData.name || openerUserName;
+            activeDisplayHandle = boundData.handle || openerUserHandle;
 
             initUserData();
             initUniqueReferralLink();
+            updateWalletAndProfileUI();
+
+            // Run referral record backfill asynchronously so it never delays offers/wallet loading
+            (async () => {
+                try {
+                    if (!boundData.referrerId && startParamRef && startParamRef !== activeAccountId && startParamRef !== openerTelegramId) {
+                        const uplinerSnap = await db.collection('users').doc(startParamRef).get();
+                        const refName = uplinerSnap.exists ? (uplinerSnap.data().name || startParamRef) : startParamRef;
+                        await userRef.set({
+                            referrerId: startParamRef,
+                            referrer: refName
+                        }, { merge: true });
+                        await createAdminReferralRecord(startParamRef, true);
+                    } else if (boundData.referrerId) {
+                        await createAdminReferralRecord(boundData.referrerId, false);
+                    }
+                } catch (_) {}
+            })();
         }
 
         function startFirestoreSync() {
@@ -1702,6 +1759,7 @@
             db.collection('settings').doc('app').onSnapshot((docSnap) => {
                 if (docSnap.exists) {
                     appSettings = { ...appSettings, ...docSnap.data() };
+                    try { localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(appSettings)); } catch (_) {}
                     applyAppSettingsUI();
                     renderTasks();
                     renderMyOffers();
@@ -1713,6 +1771,17 @@
                 if (docSnap.exists) {
                     const data = docSnap.data();
                     userProfile = { ...userProfile, ...data };
+                    try {
+                        localStorage.setItem(`techy_cached_profile_${activeAccountId}`, JSON.stringify({
+                            balance: data.balance || 0,
+                            earned: data.earned || 0,
+                            withdrawn: data.withdrawn || 0,
+                            mobile: data.mobile || '',
+                            referrer: data.referrer || null,
+                            referrerId: data.referrerId || null,
+                            referralsCount: data.referralsCount || 0
+                        }));
+                    } catch (_) {}
                     if (data.name) {
                         activeDisplayName = data.name;
                         initUserData();
@@ -1782,6 +1851,7 @@
                     .sort((a, b) => b.createdAtSec - a.createdAtSec);
 
                 offersLoaded = true;
+                persistOffersCache(liveOffers);
                 renderTasks();
                 renderMyOffers();
             }, (err) => {
@@ -1915,6 +1985,9 @@
 
             const rebuildTransactions = () => {
                 transactionsData = [...earningsList, ...withdrawalsList].sort((a, b) => b.ts - a.ts);
+                try {
+                    localStorage.setItem(`techy_cached_txns_${activeAccountId}`, JSON.stringify(transactionsData.slice(0, 40)));
+                } catch (_) {}
                 renderWalletTransactions();
                 renderEarningHistory();
             };
@@ -2137,7 +2210,23 @@
 
         window.onload = async function() {
             const wp = document.getElementById('welcomeWallpaperScreen');
-            if (wp) wp.classList.remove('hidden');
+            const alreadyAgreed = hasAgreedToTermsFirstTime();
+
+            // Hydrate cached offers, wallet balance & recent transactions immediately for zero-wait UI
+            hydrateInstantCache(openerTelegramId);
+            initUserData();
+            initUniqueReferralLink();
+            renderTasks();
+            renderMyOffers();
+            renderWalletTransactions();
+            renderEarningHistory();
+            switchTab('home');
+
+            if (alreadyAgreed) {
+                hideWallpaperScreen();
+            } else if (wp) {
+                wp.classList.remove('hidden');
+            }
 
             try {
                 if (window.Telegram?.WebApp) {
@@ -2145,10 +2234,14 @@
                     window.Telegram.WebApp.expand();
                 }
 
-                fetchPublicIpAddress();
-                await authenticateTelegramUser();
+                // Reuse existing Firebase Auth session if UID already matches Telegram user,
+                // otherwise authenticate via Worker
+                if (!auth.currentUser || String(auth.currentUser.uid) !== openerTelegramId) {
+                    await authenticateTelegramUser();
+                }
 
                 activeAccountId = auth.currentUser.uid;
+                hydrateInstantCache(activeAccountId);
 
                 await resolveAndBindDeviceAccount();
 
@@ -2163,7 +2256,6 @@
                 renderReferrals();
                 renderWalletTransactions();
                 renderEarningHistory();
-                switchTab('home');
 
                 if (hasAgreedToTermsFirstTime()) {
                     hideWallpaperScreen();
@@ -2575,22 +2667,12 @@
             document.getElementById('taskDetailScreen').classList.remove('hidden');
         }
 
-        let videoPlaybackRates = [1, 1.25, 1.5, 2];
-        let videoSpeedIdx = 0;
-
-        function formatVideoSeconds(sec) {
-            const s = Math.max(0, Math.floor(Number(sec) || 0));
-            const mins = Math.floor(s / 60);
-            const rem = s % 60;
-            return `${mins}:${rem < 10 ? '0' : ''}${rem}`;
-        }
-
         function getEmbedVideoUrl(rawUrl) {
             const u = String(rawUrl || '').trim();
             if (!u) return '';
             const ytMatch = u.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
             if (ytMatch && ytMatch[1]) {
-                return `https://www.youtube.com/embed/${ytMatch[1]}?rel=0`;
+                return `https://www.youtube.com/embed/${ytMatch[1]}?playsinline=1&rel=0&modestbranding=1`;
             }
             const driveMatch = u.match(/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]+)/);
             if (driveMatch && driveMatch[1]) {
@@ -2599,40 +2681,23 @@
             return '';
         }
 
-        function resetProcessVideoUI() {
-            const playIcon = document.getElementById('centerPlayPauseIcon');
-            const timeText = document.getElementById('videoCurrentTimeText');
-            const fillEl = document.getElementById('videoProgressFill');
-            const speedEl = document.getElementById('videoSpeedLabel');
-            if (playIcon) {
-                playIcon.classList.remove('fa-pause');
-                playIcon.classList.add('fa-play', 'ml-0.5');
-            }
-            if (timeText) timeText.innerText = '0:00';
-            if (fillEl) fillEl.style.width = '0%';
-            videoSpeedIdx = 0;
-            if (speedEl) speedEl.innerText = '1x';
-        }
-
         function isDirectVideoFileUrl(rawUrl) {
             const clean = String(rawUrl || '').split('?')[0].split('#')[0].toLowerCase();
             return /\.(mp4|webm|ogg|mov|m4v)$/.test(clean);
         }
 
-        function showProcessVideoFallback(url, msg = 'This video link cannot play inline. Tap below to open it.') {
+        function showProcessVideoFallback(url, msg = 'Tap below to watch the step-by-step video guide.') {
             const videoEl = document.getElementById('detailProcessVideo');
             const iframeEl = document.getElementById('detailProcessIframe');
-            const overlayEl = document.getElementById('customVideoControlsOverlay');
             const fallbackEl = document.getElementById('detailProcessVideoFallback');
             const fallbackMsg = document.getElementById('detailProcessVideoFallbackMsg');
-            const extLink = document.getElementById('detailProcessVideoExternalLink');
+            const fallbackBtn = document.getElementById('detailProcessVideoFallbackBtn');
             if (videoEl) videoEl.classList.add('hidden');
             if (iframeEl) iframeEl.classList.add('hidden');
-            if (overlayEl) overlayEl.classList.add('hidden');
             if (fallbackMsg) fallbackMsg.innerText = msg;
-            if (extLink) {
-                extLink.href = url || '#';
-                extLink.classList.toggle('hidden', !url || url === '#');
+            if (fallbackBtn) {
+                fallbackBtn.href = url || '#';
+                fallbackBtn.classList.toggle('hidden', !url || url === '#');
             }
             if (fallbackEl) fallbackEl.classList.remove('hidden');
         }
@@ -2641,126 +2706,51 @@
             const section = document.getElementById('detailTaskVideoSection');
             const videoEl = document.getElementById('detailProcessVideo');
             const iframeEl = document.getElementById('detailProcessIframe');
-            const overlayEl = document.getElementById('customVideoControlsOverlay');
             const fallbackEl = document.getElementById('detailProcessVideoFallback');
-            if (!section || !videoEl || !iframeEl || !overlayEl) return;
+            const extHeaderLink = document.getElementById('detailProcessVideoExternalLink');
+            if (!section || !videoEl || !iframeEl) return;
 
             const cleanUrl = String(rawUrl || '').trim();
             videoEl.pause();
             videoEl.removeAttribute('src');
             iframeEl.src = '';
             if (fallbackEl) fallbackEl.classList.add('hidden');
-            resetProcessVideoUI();
 
             if (!cleanUrl) {
                 section.classList.add('hidden');
                 return;
             }
 
+            if (extHeaderLink) {
+                extHeaderLink.href = cleanUrl;
+            }
+
             section.classList.remove('hidden');
             const embedUrl = getEmbedVideoUrl(cleanUrl);
             if (embedUrl) {
                 videoEl.classList.add('hidden');
-                overlayEl.classList.add('hidden');
                 iframeEl.classList.remove('hidden');
                 iframeEl.src = embedUrl;
             } else if (isDirectVideoFileUrl(cleanUrl)) {
                 iframeEl.classList.add('hidden');
                 videoEl.classList.remove('hidden');
-                overlayEl.classList.remove('hidden');
                 videoEl.src = cleanUrl;
                 videoEl.load();
             } else {
-                showProcessVideoFallback(cleanUrl, 'Unsupported inline video link. Tap below to watch the process guide.');
+                showProcessVideoFallback(cleanUrl, 'Tap below to watch the step-by-step video guide.');
             }
         }
 
-        function toggleProcessVideoPlay(e) {
-            if (e) e.stopPropagation();
+        document.addEventListener('DOMContentLoaded', () => {
             const videoEl = document.getElementById('detailProcessVideo');
-            const playIcon = document.getElementById('centerPlayPauseIcon');
             if (!videoEl) return;
-            if (videoEl.paused) {
-                videoEl.play().catch(() => {});
-                if (playIcon) {
-                    playIcon.classList.remove('fa-play', 'ml-0.5');
-                    playIcon.classList.add('fa-pause');
+            videoEl.addEventListener('error', () => {
+                const src = videoEl.getAttribute('src');
+                if (src) {
+                    showProcessVideoFallback(src, 'Unable to play video inline. Tap below to open it.');
                 }
-            } else {
-                videoEl.pause();
-                if (playIcon) {
-                    playIcon.classList.remove('fa-pause');
-                    playIcon.classList.add('fa-play', 'ml-0.5');
-                }
-            }
-        }
-
-        function toggleProcessVideoMute(e) {
-            if (e) e.stopPropagation();
-            const videoEl = document.getElementById('detailProcessVideo');
-            const muteIcon = document.getElementById('videoMuteIcon');
-            if (!videoEl) return;
-            videoEl.muted = !videoEl.muted;
-            if (muteIcon) {
-                muteIcon.className = videoEl.muted ? 'fa-solid fa-volume-xmark text-xs' : 'fa-solid fa-volume-high text-xs';
-            }
-        }
-
-        function toggleProcessVideoFullscreen(e) {
-            if (e) e.stopPropagation();
-            const wrap = document.getElementById('detailTaskVideoPlayerWrap');
-            if (!wrap) return;
-            if (document.fullscreenElement) {
-                document.exitFullscreen().catch(() => {});
-            } else if (wrap.requestFullscreen) {
-                wrap.requestFullscreen().catch(() => {});
-            }
-        }
-
-        function cycleProcessVideoSpeed(e) {
-            if (e) e.stopPropagation();
-            const videoEl = document.getElementById('detailProcessVideo');
-            const speedEl = document.getElementById('videoSpeedLabel');
-            if (!videoEl) return;
-            videoSpeedIdx = (videoSpeedIdx + 1) % videoPlaybackRates.length;
-            const rate = videoPlaybackRates[videoSpeedIdx];
-            videoEl.playbackRate = rate;
-            if (speedEl) speedEl.innerText = `${rate}x`;
-        }
-
-        function seekProcessVideo(e) {
-            if (e) e.stopPropagation();
-            const videoEl = document.getElementById('detailProcessVideo');
-            const track = document.getElementById('videoProgressTrack');
-            if (!videoEl || !track || !videoEl.duration) return;
-            const rect = track.getBoundingClientRect();
-            const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-            videoEl.currentTime = ratio * videoEl.duration;
-        }
-
-        (function bindProcessVideoEvents() {
-            document.addEventListener('DOMContentLoaded', () => {
-                const videoEl = document.getElementById('detailProcessVideo');
-                if (!videoEl) return;
-                videoEl.addEventListener('timeupdate', () => {
-                    const timeText = document.getElementById('videoCurrentTimeText');
-                    const fillEl = document.getElementById('videoProgressFill');
-                    if (timeText) timeText.innerText = formatVideoSeconds(videoEl.currentTime);
-                    if (fillEl && videoEl.duration) {
-                        const pct = Math.max(0, Math.min(100, (videoEl.currentTime / videoEl.duration) * 100));
-                        fillEl.style.width = `${pct}%`;
-                    }
-                });
-                videoEl.addEventListener('ended', () => {
-                    resetProcessVideoUI();
-                });
-                videoEl.addEventListener('error', () => {
-                    if (videoEl.getAttribute('src')) {
-                        showProcessVideoFallback(videoEl.getAttribute('src'), 'Unable to load video inline. Tap below to open it.');
-                    }
-                });
             });
-        })();
+        });
 
         function closeTaskDetail() {
             setupDetailProcessVideo('');
