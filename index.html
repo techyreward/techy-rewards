@@ -2210,9 +2210,10 @@
 
         window.onload = async function() {
             const wp = document.getElementById('welcomeWallpaperScreen');
-            const alreadyAgreed = hasAgreedToTermsFirstTime();
+            if (wp) wp.classList.remove('hidden');
+            const minSplashDelay = new Promise((resolve) => setTimeout(resolve, 1200));
 
-            // Hydrate cached offers, wallet balance & recent transactions immediately for zero-wait UI
+            // Hydrate cached offers, wallet balance & recent transactions immediately in background
             hydrateInstantCache(openerTelegramId);
             initUserData();
             initUniqueReferralLink();
@@ -2221,12 +2222,6 @@
             renderWalletTransactions();
             renderEarningHistory();
             switchTab('home');
-
-            if (alreadyAgreed) {
-                hideWallpaperScreen();
-            } else if (wp) {
-                wp.classList.remove('hidden');
-            }
 
             try {
                 if (window.Telegram?.WebApp) {
@@ -2256,6 +2251,8 @@
                 renderReferrals();
                 renderWalletTransactions();
                 renderEarningHistory();
+
+                await minSplashDelay;
 
                 if (hasAgreedToTermsFirstTime()) {
                     hideWallpaperScreen();
@@ -2498,11 +2495,13 @@
                         const isChecked = Boolean(tm.checked);
                         const boxCls = isChecked
                             ? 'bg-emerald-50/90 border-emerald-200/90 text-emerald-900'
-                            : 'bg-slate-100/80 border-slate-200/80 text-slate-400';
+                            : 'bg-rose-50/95 border-rose-300/90 text-rose-800';
                         return `
                             <div class="${boxCls} border rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-2 transition">
-                                <span class="text-[11px] font-medium leading-snug break-words">${escapeHtml(tm.text || '')}</span>
-                                ${isChecked ? `<span class="text-xs shrink-0 leading-none">✅</span>` : ''}
+                                <span class="text-[11px] font-semibold leading-snug break-words">${escapeHtml(tm.text || '')}</span>
+                                ${isChecked
+                                    ? `<span class="text-xs shrink-0 leading-none">✅</span>`
+                                    : `<i class="fa-solid fa-circle-exclamation text-rose-500 text-xs shrink-0"></i>`}
                             </div>
                         `;
                     };
@@ -2516,11 +2515,18 @@
                     } else if (trackingMsgs.length > 1) {
                         const shutterId = `trkShutter_${task.id}`;
                         const chevronId = `trkChevron_${task.id}`;
+                        const allChecked = trackingMsgs.every((m) => Boolean(m.checked));
+                        const shutterBtnCls = allChecked
+                            ? 'bg-emerald-50/90 hover:bg-emerald-100/80 border-emerald-200/90 text-emerald-900'
+                            : 'bg-rose-50/95 hover:bg-rose-100/80 border-rose-300/90 text-rose-800';
                         trackingHtml = `
                             <div onclick="event.stopPropagation()" class="px-1 space-y-1.5">
-                                <button type="button" onclick="toggleTaskTrackingShutter('${task.id}')" class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-slate-100/90 hover:bg-slate-200/70 border border-slate-200/80 text-[11px] font-semibold text-slate-600 transition">
-                                    <span class="truncate">${escapeHtml(trackingMsgs[0].text || '')}</span>
-                                    <span class="inline-flex items-center gap-1 shrink-0 ml-2 text-[10px] text-slate-500">
+                                <button type="button" onclick="toggleTaskTrackingShutter('${task.id}')" class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl ${shutterBtnCls} border text-[11px] font-semibold transition">
+                                    <span class="truncate flex items-center gap-1.5">
+                                        ${allChecked ? '' : '<i class="fa-solid fa-circle-exclamation text-rose-500 text-xs shrink-0"></i>'}
+                                        <span class="truncate">${escapeHtml(trackingMsgs[0].text || '')}</span>
+                                    </span>
+                                    <span class="inline-flex items-center gap-1 shrink-0 ml-2 text-[10px] opacity-80">
                                         <span>+${trackingMsgs.length - 1}</span>
                                         <i id="${chevronId}" class="fa-solid fa-chevron-down text-[9px] transition-transform duration-200"></i>
                                     </span>
